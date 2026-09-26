@@ -11,7 +11,7 @@ class AdminBottomNav extends StatelessWidget {
   static const _items = [
     (icon: Icons.dns_outlined, label: 'Queue'),
     (icon: Icons.calendar_month_outlined, label: 'Calendar'),
-    (icon: Icons.directions_bus_filled_outlined, label: 'Masters'),
+    (icon: Icons.directions_bus_filled_outlined, label: 'Buses'),
     (icon: Icons.bar_chart_rounded, label: 'Reports'),
   ];
 

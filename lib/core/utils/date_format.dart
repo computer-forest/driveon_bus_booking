@@ -24,4 +24,18 @@ class AppDateFormat {
     final period = t.period == DayPeriod.am ? 'AM' : 'PM';
     return '${hour.toString().padLeft(2, '0')}:$minute $period';
   }
+
+  static String timeRange(TimeOfDay from, TimeOfDay to) =>
+      '${hourMinute(from)} – ${hourMinute(to)}';
+
+  /// Compact hour label for the calendar's ruler — "6a", "12p", "9p".
+  static String hourTick(int hour24) {
+    final period = hour24 < 12 ? 'a' : 'p';
+    final hour = hour24 % 12 == 0 ? 12 : hour24 % 12;
+    return '$hour$period';
+  }
+
+  static String weekday(DateTime d) => _weekdays[d.weekday - 1];
+
+  static String dayMonth(DateTime d) => '${d.day} ${_months[d.month - 1]}';
 }

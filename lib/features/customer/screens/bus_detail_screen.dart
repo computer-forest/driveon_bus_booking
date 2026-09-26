@@ -11,7 +11,7 @@ import 'hold_screen.dart';
 /// Shared by the results list's "Select this bus" fast path and the bus
 /// detail screen: shows the hold confirmation sheet, and pushes
 /// [HoldScreen] if the customer confirms. Returns once navigation settles.
-Future<void> confirmBusSelection(BuildContext context, {required BusResult bus, required String routeSummary}) async {
+Future<void> confirmBusSelection(BuildContext context, {required BusRecord bus, required String routeSummary}) async {
   final confirmed = await showModalBottomSheet<bool>(
     context: context,
     backgroundColor: Colors.transparent,
@@ -26,7 +26,7 @@ Future<void> confirmBusSelection(BuildContext context, {required BusResult bus, 
 class BusDetailScreen extends StatelessWidget {
   const BusDetailScreen({super.key, required this.bus, required this.routeSummary});
 
-  final BusResult bus;
+  final BusRecord bus;
   final String routeSummary;
 
   @override
@@ -60,10 +60,7 @@ class BusDetailScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('${bus.capacity} seater', style: textTheme.headlineSmall),
-                      StatusBadge(
-                        label: bus.available ? 'Available' : 'Unavailable',
-                        tone: bus.available ? StatusTone.success : StatusTone.neutral,
-                      ),
+                      const StatusBadge(label: 'Available', tone: StatusTone.success),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -132,7 +129,7 @@ class BusDetailScreen extends StatelessWidget {
 class _SelectionConfirmationSheet extends StatelessWidget {
   const _SelectionConfirmationSheet({required this.bus, required this.routeSummary});
 
-  final BusResult bus;
+  final BusRecord bus;
   final String routeSummary;
 
   @override

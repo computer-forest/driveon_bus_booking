@@ -4,16 +4,25 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
+import '../../../core/utils/date_format.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../../data/availability.dart';
 import '../../../data/mock_data.dart';
 
 /// REA-01..07: every bus free for the booking's exact window (including
 /// buffer), a mandatory reason, and — for a round trip — the new bus must
 /// be free for the entire remaining window, not just one leg.
 class ReallocationPickerScreen extends StatefulWidget {
-  const ReallocationPickerScreen({super.key, required this.currentBusReg});
+  const ReallocationPickerScreen({
+    super.key,
+    required this.currentBusReg,
+    required this.start,
+    required this.end,
+  });
 
   final String currentBusReg;
+  final DateTime start;
+  final DateTime end;
 
   @override
   State<ReallocationPickerScreen> createState() => _ReallocationPickerScreenState();
@@ -34,7 +43,9 @@ class _ReallocationPickerScreenState extends State<ReallocationPickerScreen> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final freeBuses = MockData.buses.where((b) => b.active && b.regNumber != widget.currentBusReg).toList();
+    final freeBuses = MockData.buses
+        .where((b) => b.regNumber != widget.currentBusReg && isBusFree(b, widget.start, widget.end))
+        .toList();
     return Scaffold(
       appBar: AppBar(title: const Text('Reallocate bus')),
       body: SafeArea(
@@ -53,7 +64,9 @@ class _ReallocationPickerScreenState extends State<ReallocationPickerScreen> {
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Text(
-                            'Currently ${widget.currentBusReg} · showing buses free for this exact window',
+                            'Currently ${widget.currentBusReg} · free for '
+                            '${AppDateFormat.dayMonth(widget.start)}, '
+                            '${AppDateFormat.timeRange(TimeOfDay.fromDateTime(widget.start), TimeOfDay.fromDateTime(widget.end))}',
                             style: textTheme.labelMedium,
                           ),
                         ),
@@ -62,6 +75,8 @@ class _ReallocationPickerScreenState extends State<ReallocationPickerScreen> {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   const SectionLabel('Available buses'),
+                  if (freeBuses.isEmpty)
+                    Text('No other bus is free for this window.', style: textTheme.bodyMedium),
                   for (final bus in freeBuses) ...[
                     _busTile(bus.regNumber, '${bus.vendorName} · ${bus.capacity} seater · ${bus.seatType}'),
                     const SizedBox(height: AppSpacing.sm),

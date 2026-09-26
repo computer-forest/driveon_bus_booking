@@ -30,6 +30,7 @@ class _HomeSearchScreenState extends State<HomeSearchScreen> {
   DateTime _pickupDate = DateTime(2026, 9, 14);
   TimeOfDay _pickupTime = const TimeOfDay(hour: 6, minute: 0);
   DateTime _dropDate = DateTime(2026, 9, 14);
+  TimeOfDay _dropTime = const TimeOfDay(hour: 18, minute: 0);
   DateTime _returnDate = DateTime(2026, 9, 15);
   TimeOfDay _returnTime = const TimeOfDay(hour: 17, minute: 0);
 
@@ -137,7 +138,13 @@ class _HomeSearchScreenState extends State<HomeSearchScreen> {
                         ),
                       ),
                       const SizedBox(width: AppSpacing.md),
-                      const Expanded(child: LabeledField(label: 'Approx. length', initialValue: '6 hrs')),
+                      Expanded(
+                        child: TimeField(
+                          label: 'Drop time',
+                          value: _dropTime,
+                          onChanged: (t) => setState(() => _dropTime = t),
+                        ),
+                      ),
                     ],
                   ),
                   if (_isRoundTrip) ...[
@@ -206,8 +213,21 @@ class _HomeSearchScreenState extends State<HomeSearchScreen> {
                       final summary =
                           '${_pickupLocation.area} → ${_dropLocation.area} · ${AppDateFormat.dayMonthYear(_pickupDate)}, ${AppDateFormat.hourMinute(_pickupTime)}'
                           '${_isRoundTrip ? ' · returns ${AppDateFormat.dayMonthYear(_returnDate)}' : ''}';
+                      final criteria = SearchCriteria(
+                        pickup: _pickupLocation,
+                        drop: _dropLocation,
+                        pickupDate: _pickupDate,
+                        pickupTime: _pickupTime,
+                        dropDate: _dropDate,
+                        dropTime: _dropTime,
+                        isRoundTrip: _isRoundTrip,
+                        returnDate: _returnDate,
+                        returnTime: _returnTime,
+                        capacity: _capacityIndex == null ? null : _capacities[_capacityIndex!],
+                        summary: summary,
+                      );
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => ResultsScreen(summary: summary)),
+                        MaterialPageRoute(builder: (_) => ResultsScreen(criteria: criteria)),
                       );
                     },
                   ),

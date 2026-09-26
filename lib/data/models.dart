@@ -3,25 +3,10 @@
 /// with the real Firestore-backed entities from the BRD's data model.
 library;
 
-class BusResult {
-  const BusResult({
-    required this.id,
-    required this.capacity,
-    required this.ac,
-    required this.seatType,
-    required this.available,
-    this.photoCount = 4,
-    this.amenities = const [],
-  });
+import 'package:flutter/material.dart' show TimeOfDay;
 
-  final String id;
-  final int capacity;
-  final bool ac;
-  final String seatType;
-  final bool available;
-  final int photoCount;
-  final List<String> amenities;
-}
+DateTime combineDateTime(DateTime day, TimeOfDay time) =>
+    DateTime(day.year, day.month, day.day, time.hour, time.minute);
 
 class DriverInfo {
   const DriverInfo({required this.name, required this.phone, required this.busNumber});
@@ -39,38 +24,59 @@ class LedgerEntry {
   final String? note;
 }
 
-enum BookingStatus { requested, costConfirmed, confirmed, inTrip, completed }
+enum BookingStage { requested, confirmed, inTrip, completed, settled }
 
-class QueueItem {
-  const QueueItem({
+/// One charter, from the moment the customer holds a bus through to
+/// settlement. The queue shows the holds, the calendar shows the rest.
+class Booking {
+  const Booking({
     required this.reference,
     required this.customerName,
-    required this.capacity,
+    required this.customerPhone,
     required this.route,
-    required this.pickupWindow,
-    required this.holdSecondsLeft,
+    required this.capacity,
+    required this.busReg,
+    required this.start,
+    required this.end,
+    required this.totalFare,
+    required this.amountPaid,
+    required this.stage,
+    this.holdSecondsLeft = 0,
   });
 
   final String reference;
   final String customerName;
-  final int capacity;
+  final String customerPhone;
   final String route;
-  final String pickupWindow;
+  final int capacity;
+
+  /// A bus is held the moment the customer selects it, so even a pending
+  /// request occupies its slot — that is why this is never null.
+  final String busReg;
+  final DateTime start;
+  final DateTime end;
+  final int totalFare;
+  final int amountPaid;
+  final BookingStage stage;
   final int holdSecondsLeft;
-}
 
-enum CalendarBlockType { available, booked, buffer, blackout }
+  int get balanceDue => totalFare - amountPaid;
+  bool get isHold => stage == BookingStage.requested;
 
-class CalendarBlock {
-  const CalendarBlock({required this.type, this.label});
-  final CalendarBlockType type;
-  final String? label;
-}
-
-class BusCalendarRow {
-  const BusCalendarRow({required this.busLabel, required this.blocks});
-  final String busLabel;
-  final List<CalendarBlock> blocks;
+  Booking copyWith({BookingStage? stage, String? busReg, int? amountPaid}) => Booking(
+        reference: reference,
+        customerName: customerName,
+        customerPhone: customerPhone,
+        route: route,
+        capacity: capacity,
+        busReg: busReg ?? this.busReg,
+        start: start,
+        end: end,
+        totalFare: totalFare,
+        amountPaid: amountPaid ?? this.amountPaid,
+        stage: stage ?? this.stage,
+        holdSecondsLeft: holdSecondsLeft,
+      );
 }
 
 /// City/area entry from the Admin-maintained location list (BRD: no map
@@ -101,6 +107,31 @@ class Vendor {
   final bool active;
 }
 
+/// One weekday's charter window for a bus. Admin sets these per bus on the
+/// bus form; search and the calendar both read them.
+class DayAvailability {
+  const DayAvailability({
+    required this.available,
+    this.start = const TimeOfDay(hour: 6, minute: 0),
+    this.end = const TimeOfDay(hour: 22, minute: 0),
+  });
+
+  const DayAvailability.closed()
+      : available = false,
+        start = const TimeOfDay(hour: 6, minute: 0),
+        end = const TimeOfDay(hour: 22, minute: 0);
+
+  final bool available;
+  final TimeOfDay start;
+  final TimeOfDay end;
+
+  DayAvailability copyWith({bool? available, TimeOfDay? start, TimeOfDay? end}) => DayAvailability(
+        available: available ?? this.available,
+        start: start ?? this.start,
+        end: end ?? this.end,
+      );
+}
+
 class BusRecord {
   const BusRecord({
     required this.regNumber,
@@ -111,6 +142,9 @@ class BusRecord {
     required this.baseCity,
     required this.driverName,
     required this.active,
+    required this.weeklyAvailability,
+    this.amenities = const [],
+    this.photoCount = 4,
   });
 
   final String regNumber;
@@ -121,24 +155,64 @@ class BusRecord {
   final String baseCity;
   final String driverName;
   final bool active;
+
+  /// Exactly 7 entries, index 0 = Monday, so `weeklyAvailability[d.weekday - 1]`.
+  final List<DayAvailability> weeklyAvailability;
+  final List<String> amenities;
+  final int photoCount;
+
+  String get label => '$regNumber · $capacity seater';
 }
 
 class DriverRecord {
   const DriverRecord({
     required this.name,
     required this.phone,
-    required this.licenceNumber,
-    required this.licenceExpiry,
-    required this.assignedBus,
     required this.vendorName,
+    this.licenceNumber,
   });
 
   final String name;
   final String phone;
-  final String licenceNumber;
-  final String licenceExpiry;
-  final String? assignedBus;
   final String vendorName;
+  final String? licenceNumber;
+}
+
+/// What the customer asked for on the search form, carried through to
+/// results so availability can actually be applied.
+class SearchCriteria {
+  const SearchCriteria({
+    required this.pickup,
+    required this.drop,
+    required this.pickupDate,
+    required this.pickupTime,
+    required this.dropDate,
+    required this.dropTime,
+    required this.isRoundTrip,
+    required this.returnDate,
+    required this.returnTime,
+    required this.summary,
+    this.capacity,
+  });
+
+  final LocationEntry pickup;
+  final LocationEntry drop;
+  final DateTime pickupDate;
+  final TimeOfDay pickupTime;
+  final DateTime dropDate;
+  final TimeOfDay dropTime;
+  final bool isRoundTrip;
+  final DateTime returnDate;
+  final TimeOfDay returnTime;
+  final String summary;
+  final int? capacity;
+
+  DateTime get startsAt => combineDateTime(pickupDate, pickupTime);
+
+  /// On a round trip the bus stays with the customer throughout, so the
+  /// hold runs to the return instant rather than the outbound drop.
+  DateTime get endsAt =>
+      isRoundTrip ? combineDateTime(returnDate, returnTime) : combineDateTime(dropDate, dropTime);
 }
 
 enum NotificationTone { info, success, warning, urgent }
@@ -202,16 +276,16 @@ class MessageTemplate {
 
 class BlackoutEntry {
   const BlackoutEntry({
-    required this.busLabel,
+    required this.busReg,
     required this.reason,
     required this.from,
     required this.to,
     this.isMaintenance = false,
   });
 
-  final String busLabel;
+  final String busReg;
   final String reason;
-  final String from;
-  final String to;
+  final DateTime from;
+  final DateTime to;
   final bool isMaintenance;
 }

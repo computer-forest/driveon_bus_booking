@@ -1,34 +1,29 @@
+import 'package:flutter/material.dart' show TimeOfDay;
+
 import 'models.dart';
 
+const _afternoon = DayAvailability(
+  available: true,
+  start: TimeOfDay(hour: 14, minute: 0),
+  end: TimeOfDay(hour: 22, minute: 0),
+);
+const _dayShift = DayAvailability(
+  available: true,
+  start: TimeOfDay(hour: 6, minute: 0),
+  end: TimeOfDay(hour: 17, minute: 0),
+);
+const _longDay = DayAvailability(
+  available: true,
+  start: TimeOfDay(hour: 6, minute: 0),
+  end: TimeOfDay(hour: 23, minute: 0),
+);
+const _closed = DayAvailability.closed();
+
+/// In-memory store for the Phase 0 prototype. The fleet lists are mutable
+/// so admin edits hold for the session; Phase 1 replaces all of this with
+/// Firestore.
 class MockData {
   MockData._();
-
-  static const busResults = [
-    BusResult(
-      id: 'BUS-7781',
-      capacity: 20,
-      ac: true,
-      seatType: 'Pushback seats',
-      available: true,
-      amenities: ['AC', 'Pushback seats', 'Reading lights', 'Charging points'],
-    ),
-    BusResult(
-      id: 'BUS-9902',
-      capacity: 17,
-      ac: true,
-      seatType: 'Pushback seats',
-      available: true,
-      amenities: ['AC', 'Pushback seats', 'Music system'],
-    ),
-    BusResult(
-      id: 'BUS-1120',
-      capacity: 35,
-      ac: false,
-      seatType: 'Highback seats',
-      available: true,
-      amenities: ['Highback seats', 'Extra legroom'],
-    ),
-  ];
 
   static const driver = DriverInfo(
     name: 'Suresh Patil',
@@ -40,71 +35,6 @@ class MockData {
     LedgerEntry(label: 'Total fare', amount: '₹18,000'),
     LedgerEntry(label: 'Advance received', amount: '₹4,500', note: 'Recorded by Admin · 8 Sep'),
     LedgerEntry(label: 'Balance due', amount: '₹13,500'),
-  ];
-
-  static const queue = [
-    QueueItem(
-      reference: 'CB-20260914-0472',
-      customerName: 'Rohan Deshmukh',
-      capacity: 20,
-      route: 'Thane → Mahabaleshwar',
-      pickupWindow: '14 Sep, 6:00 AM',
-      holdSecondsLeft: 252,
-    ),
-    QueueItem(
-      reference: 'CB-20260914-0473',
-      customerName: 'Anita Kulkarni',
-      capacity: 17,
-      route: 'Mumbai → Lonavala',
-      pickupWindow: '15 Sep, 7:30 AM',
-      holdSecondsLeft: 710,
-    ),
-    QueueItem(
-      reference: 'CB-20260915-0480',
-      customerName: 'Prakash Iyer',
-      capacity: 40,
-      route: 'Navi Mumbai → Karjat',
-      pickupWindow: '20 Sep, 8:00 AM',
-      holdSecondsLeft: 1323,
-    ),
-    QueueItem(
-      reference: 'CB-20260915-0481',
-      customerName: 'Meera Shah',
-      capacity: 35,
-      route: 'Thane → Alibaug',
-      pickupWindow: '21 Sep, 5:30 AM',
-      holdSecondsLeft: 1661,
-    ),
-  ];
-
-  static const calendarRows = [
-    BusCalendarRow(busLabel: 'MH-04-BT-7781 · 20 seater', blocks: [
-      CalendarBlock(type: CalendarBlockType.available),
-      CalendarBlock(type: CalendarBlockType.available),
-      CalendarBlock(type: CalendarBlockType.booked, label: 'CB-72'),
-      CalendarBlock(type: CalendarBlockType.buffer),
-      CalendarBlock(type: CalendarBlockType.available),
-      CalendarBlock(type: CalendarBlockType.blackout),
-      CalendarBlock(type: CalendarBlockType.blackout),
-    ]),
-    BusCalendarRow(busLabel: 'MH-04-CT-9902 · 17 seater', blocks: [
-      CalendarBlock(type: CalendarBlockType.available),
-      CalendarBlock(type: CalendarBlockType.booked, label: 'CB-51'),
-      CalendarBlock(type: CalendarBlockType.buffer),
-      CalendarBlock(type: CalendarBlockType.available),
-      CalendarBlock(type: CalendarBlockType.available),
-      CalendarBlock(type: CalendarBlockType.available),
-      CalendarBlock(type: CalendarBlockType.available),
-    ]),
-    BusCalendarRow(busLabel: 'MH-12-AK-1120 · 35 seater', blocks: [
-      CalendarBlock(type: CalendarBlockType.available),
-      CalendarBlock(type: CalendarBlockType.available),
-      CalendarBlock(type: CalendarBlockType.available),
-      CalendarBlock(type: CalendarBlockType.booked, label: 'CB-80'),
-      CalendarBlock(type: CalendarBlockType.buffer),
-      CalendarBlock(type: CalendarBlockType.available),
-      CalendarBlock(type: CalendarBlockType.available),
-    ]),
   ];
 
   static const locations = [
@@ -131,8 +61,8 @@ class MockData {
     Vendor(name: 'Konkan Darshan', contactPerson: 'Meghna Rane', phone: '+91 98200 10003', busCount: 2, active: false),
   ];
 
-  static const buses = [
-    BusRecord(
+  static final List<BusRecord> buses = [
+    const BusRecord(
       regNumber: 'MH-04-BT-7781',
       vendorName: 'Neeta Travels',
       capacity: 20,
@@ -141,8 +71,10 @@ class MockData {
       baseCity: 'Thane',
       driverName: 'Suresh Patil',
       active: true,
+      weeklyAvailability: [_afternoon, _afternoon, _afternoon, _afternoon, _afternoon, _closed, _closed],
+      amenities: ['AC', 'Pushback seats', 'Reading lights', 'Charging points'],
     ),
-    BusRecord(
+    const BusRecord(
       regNumber: 'MH-04-CT-9902',
       vendorName: 'Neeta Travels',
       capacity: 17,
@@ -151,8 +83,10 @@ class MockData {
       baseCity: 'Thane',
       driverName: 'Ramesh Jadhav',
       active: true,
+      weeklyAvailability: [_dayShift, _dayShift, _dayShift, _dayShift, _dayShift, _dayShift, _dayShift],
+      amenities: ['AC', 'Pushback seats', 'Music system'],
     ),
-    BusRecord(
+    const BusRecord(
       regNumber: 'MH-12-AK-1120',
       vendorName: 'Shivneri Coaches',
       capacity: 35,
@@ -161,8 +95,10 @@ class MockData {
       baseCity: 'Pune',
       driverName: 'Vikas More',
       active: true,
+      weeklyAvailability: [_longDay, _longDay, _longDay, _longDay, _longDay, _longDay, _closed],
+      amenities: ['Highback seats', 'Extra legroom'],
     ),
-    BusRecord(
+    const BusRecord(
       regNumber: 'MH-14-DE-5567',
       vendorName: 'Shivneri Coaches',
       capacity: 40,
@@ -171,40 +107,147 @@ class MockData {
       baseCity: 'Pune',
       driverName: 'Unassigned',
       active: false,
+      weeklyAvailability: [_longDay, _longDay, _longDay, _longDay, _longDay, _longDay, _longDay],
+      amenities: ['AC', 'Pushback seats', 'Luggage hold'],
     ),
   ];
 
-  static const drivers = [
-    DriverRecord(
+  /// One record per charter, from hold through settlement. Seeded so
+  /// Mon 14 Sep 2026 — the prototype's "today" — already shows a hold,
+  /// a confirmed trip and one in progress, across three different buses.
+  static final List<Booking> bookings = [
+    Booking(
+      reference: 'CB-20260914-0472',
+      customerName: 'Rohan Deshmukh',
+      customerPhone: '+91 98200 11223',
+      route: 'Thane → Mahabaleshwar',
+      capacity: 20,
+      busReg: 'MH-04-BT-7781',
+      start: DateTime(2026, 9, 14, 15, 0),
+      end: DateTime(2026, 9, 14, 20, 0),
+      totalFare: 18000,
+      amountPaid: 4500,
+      stage: BookingStage.confirmed,
+    ),
+    Booking(
+      reference: 'CB-20260914-0473',
+      customerName: 'Anita Kulkarni',
+      customerPhone: '+91 98200 22334',
+      route: 'Mumbai → Lonavala',
+      capacity: 17,
+      busReg: 'MH-04-CT-9902',
+      start: DateTime(2026, 9, 14, 8, 0),
+      end: DateTime(2026, 9, 14, 14, 0),
+      totalFare: 12000,
+      amountPaid: 3000,
+      stage: BookingStage.inTrip,
+    ),
+    Booking(
+      reference: 'CB-20260914-0474',
+      customerName: 'Karan Mehta',
+      customerPhone: '+91 98200 33445',
+      route: 'Pune → Panchgani',
+      capacity: 35,
+      busReg: 'MH-12-AK-1120',
+      start: DateTime(2026, 9, 14, 9, 0),
+      end: DateTime(2026, 9, 14, 16, 0),
+      totalFare: 0,
+      amountPaid: 0,
+      stage: BookingStage.requested,
+      holdSecondsLeft: 252,
+    ),
+    Booking(
+      reference: 'CB-20260915-0490',
+      customerName: 'Deepak Joshi',
+      customerPhone: '+91 98200 44556',
+      route: 'Thane → Igatpuri',
+      capacity: 17,
+      busReg: 'MH-04-CT-9902',
+      start: DateTime(2026, 9, 15, 8, 0),
+      end: DateTime(2026, 9, 15, 14, 0),
+      totalFare: 10000,
+      amountPaid: 2500,
+      stage: BookingStage.confirmed,
+    ),
+    Booking(
+      reference: 'CB-20260916-0491',
+      customerName: 'Neha Sawant',
+      customerPhone: '+91 98200 55667',
+      route: 'Thane → Nashik',
+      capacity: 20,
+      busReg: 'MH-04-BT-7781',
+      start: DateTime(2026, 9, 16, 15, 0),
+      end: DateTime(2026, 9, 16, 20, 0),
+      totalFare: 18000,
+      amountPaid: 4500,
+      stage: BookingStage.confirmed,
+    ),
+    Booking(
+      reference: 'CB-20260917-0492',
+      customerName: 'Sanjana Pillai',
+      customerPhone: '+91 98200 66778',
+      route: 'Pune → Mahabaleshwar',
+      capacity: 35,
+      busReg: 'MH-12-AK-1120',
+      start: DateTime(2026, 9, 17, 7, 0),
+      end: DateTime(2026, 9, 17, 18, 0),
+      totalFare: 24000,
+      amountPaid: 6000,
+      stage: BookingStage.confirmed,
+    ),
+    Booking(
+      reference: 'CB-20260915-0480',
+      customerName: 'Prakash Iyer',
+      customerPhone: '+91 98200 77889',
+      route: 'Navi Mumbai → Karjat',
+      capacity: 17,
+      busReg: 'MH-04-CT-9902',
+      start: DateTime(2026, 9, 20, 8, 0),
+      end: DateTime(2026, 9, 20, 13, 0),
+      totalFare: 0,
+      amountPaid: 0,
+      stage: BookingStage.requested,
+      holdSecondsLeft: 1323,
+    ),
+    Booking(
+      reference: 'CB-20260915-0481',
+      customerName: 'Meera Shah',
+      customerPhone: '+91 98200 88990',
+      route: 'Thane → Alibaug',
+      capacity: 35,
+      busReg: 'MH-12-AK-1120',
+      start: DateTime(2026, 9, 21, 8, 0),
+      end: DateTime(2026, 9, 21, 16, 0),
+      totalFare: 0,
+      amountPaid: 0,
+      stage: BookingStage.requested,
+      holdSecondsLeft: 1661,
+    ),
+  ];
+
+  static final List<DriverRecord> drivers = [
+    const DriverRecord(
       name: 'Suresh Patil',
       phone: '+91 90000 11122',
       licenceNumber: 'MH04 20180012345',
-      licenceExpiry: '12 Mar 2027',
-      assignedBus: 'MH-04-BT-7781',
       vendorName: 'Neeta Travels',
     ),
-    DriverRecord(
+    const DriverRecord(
       name: 'Ramesh Jadhav',
       phone: '+91 90000 22233',
       licenceNumber: 'MH04 20170034567',
-      licenceExpiry: '30 Nov 2026',
-      assignedBus: 'MH-04-CT-9902',
       vendorName: 'Neeta Travels',
     ),
-    DriverRecord(
+    const DriverRecord(
       name: 'Vikas More',
       phone: '+91 90000 33344',
       licenceNumber: 'MH12 20190056789',
-      licenceExpiry: '05 Jan 2028',
-      assignedBus: 'MH-12-AK-1120',
       vendorName: 'Shivneri Coaches',
     ),
-    DriverRecord(
+    const DriverRecord(
       name: 'Pramod Kale',
       phone: '+91 90000 44455',
       licenceNumber: 'MH12 20200078901',
-      licenceExpiry: '18 Jun 2027',
-      assignedBus: null,
       vendorName: 'Shivneri Coaches',
     ),
   ];
@@ -324,19 +367,19 @@ class MockData {
     ),
   ];
 
-  static const blackouts = [
+  static final List<BlackoutEntry> blackouts = [
     BlackoutEntry(
-      busLabel: 'MH-04-BT-7781 · 20 seater',
+      busReg: 'MH-04-BT-7781',
       reason: 'Annual service',
-      from: '20 Sep',
-      to: '22 Sep',
+      from: DateTime(2026, 9, 20),
+      to: DateTime(2026, 9, 22),
       isMaintenance: true,
     ),
     BlackoutEntry(
-      busLabel: 'MH-12-AK-1120 · 35 seater',
+      busReg: 'MH-12-AK-1120',
       reason: 'Vendor-side festival block',
-      from: '1 Oct',
-      to: '3 Oct',
+      from: DateTime(2026, 10, 1),
+      to: DateTime(2026, 10, 3),
     ),
   ];
 }

@@ -28,12 +28,11 @@ class ReportsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     return Scaffold(
+      appBar: AppBar(title: const Text('Reports')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, AppSpacing.xxl),
+          padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.xxl),
           children: [
-            Text('Reports', style: textTheme.displaySmall?.copyWith(fontSize: 24)),
-            const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
                 _filterChip(context, 'Today', selected: true),

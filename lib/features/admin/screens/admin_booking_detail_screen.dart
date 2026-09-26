@@ -2,31 +2,43 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/utils/date_format.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../../data/mock_data.dart';
+import '../../../data/models.dart';
+import '../widgets/booking_card.dart';
 import 'cancel_refund_screen.dart';
 import 'reallocation_picker_screen.dart';
 
-enum _TripStage { confirmed, inTrip, completed, settled }
-
 class AdminBookingDetailScreen extends StatefulWidget {
-  const AdminBookingDetailScreen({super.key});
+  const AdminBookingDetailScreen({super.key, required this.booking});
+
+  final Booking booking;
 
   @override
   State<AdminBookingDetailScreen> createState() => _AdminBookingDetailScreenState();
 }
 
 class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
-  _TripStage _stage = _TripStage.confirmed;
-  String _busReg = 'MH-04-BT-7781';
+  late BookingStage _stage = widget.booking.stage;
+  late String _busReg = widget.booking.busReg;
+  late int _amountPaid = widget.booking.amountPaid;
 
   Future<void> _reallocate() async {
     final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => ReallocationPickerScreen(currentBusReg: _busReg)),
+      MaterialPageRoute(
+        builder: (_) => ReallocationPickerScreen(
+          currentBusReg: _busReg,
+          start: widget.booking.start,
+          end: widget.booking.end,
+        ),
+      ),
     );
     if (result == true && mounted) {
-      setState(() => _busReg = 'MH-04-CT-9902');
+      final index = MockData.buses.indexWhere((b) => b.regNumber != _busReg && b.active);
+      setState(() => _busReg = index >= 0 ? MockData.buses[index].regNumber : _busReg);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Bus reallocated — customer notified with new bus and driver.')),
       );
@@ -35,7 +47,7 @@ class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
 
   Future<void> _cancel() async {
     final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => const CancelRefundScreen(reference: 'CB-20260914-0472')),
+      MaterialPageRoute(builder: (_) => CancelRefundScreen(reference: widget.booking.reference)),
     );
     if (result == true && mounted) {
       Navigator.of(context).pop();
@@ -45,43 +57,53 @@ class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final booking = widget.booking;
+    final advanceDue = (booking.totalFare * 0.25).round();
     return Scaffold(
-      appBar: AppBar(title: const Text('CB-20260914-0472')),
+      appBar: AppBar(title: Text(booking.reference)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.xxxl),
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: AppColors.urgentTint,
-                borderRadius: AppRadius.controlRadius,
+            if (booking.isHold) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.urgentTint,
+                  borderRadius: AppRadius.controlRadius,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.hourglass_bottom_rounded, size: 16, color: AppColors.urgent),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      'Held for ${(booking.holdSecondsLeft ~/ 60).toString().padLeft(2, '0')}:'
+                      '${(booking.holdSecondsLeft % 60).toString().padLeft(2, '0')} more',
+                      style: textTheme.bodyMedium?.copyWith(color: AppColors.urgent, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.hourglass_bottom_rounded, size: 16, color: AppColors.urgent),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text('Held for 04:12 more', style: textTheme.bodyMedium?.copyWith(color: AppColors.urgent, fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xl),
+              const SizedBox(height: AppSpacing.xl),
+            ],
 
             AppCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SectionLabel('Customer'),
-                  Text('Rohan Deshmukh', style: textTheme.titleSmall),
+                  Text(booking.customerName, style: textTheme.titleSmall),
                   const SizedBox(height: 2),
-                  Text('+91 98200 11223', style: textTheme.bodyMedium),
+                  Text(booking.customerPhone, style: textTheme.bodyMedium),
                   const SizedBox(height: AppSpacing.lg),
                   const HairlineDivider(),
                   const SectionLabel('Requested'),
-                  Text('Thane → Mahabaleshwar, round pickup', style: textTheme.bodyLarge),
+                  Text(booking.route, style: textTheme.bodyLarge),
                   const SizedBox(height: 2),
                   Text(
-                    '14 Sep 2026, 6:00 AM · 20 seater AC pushback · $_busReg',
+                    '${AppDateFormat.dayMonthYear(booking.start)}, '
+                    '${AppDateFormat.timeRange(TimeOfDay.fromDateTime(booking.start), TimeOfDay.fromDateTime(booking.end))} · '
+                    '${booking.capacity} seater · $_busReg',
                     style: textTheme.bodyMedium,
                   ),
                 ],
@@ -90,11 +112,15 @@ class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
             const SizedBox(height: AppSpacing.xxl),
 
             const SectionLabel('Confirm cost'),
-            const LabeledField(label: 'Total fare (₹)', initialValue: '18,000', keyboardType: TextInputType.number),
+            LabeledField(
+              label: 'Total fare (₹)',
+              initialValue: booking.totalFare == 0 ? '' : '${booking.totalFare}',
+              keyboardType: TextInputType.number,
+            ),
             const SizedBox(height: AppSpacing.lg),
-            const LabeledField(
+            LabeledField(
               label: 'Advance due (₹) — 25% default',
-              initialValue: '4,500',
+              initialValue: advanceDue == 0 ? '' : '$advanceDue',
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -103,16 +129,27 @@ class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
 
             const SectionLabel('Record payment'),
             Row(
-              children: const [
-                Expanded(child: LabeledField(label: 'Amount (₹)', initialValue: '4,500', keyboardType: TextInputType.number)),
-                SizedBox(width: AppSpacing.md),
-                Expanded(child: LabeledField(label: 'Mode', initialValue: 'UPI')),
+              children: [
+                Expanded(
+                  child: LabeledField(
+                    label: 'Amount (₹)',
+                    initialValue: '$_amountPaid',
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                const Expanded(child: LabeledField(label: 'Mode', initialValue: 'UPI')),
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
             const LabeledField(label: 'Reference', initialValue: 'UPI/20260908...'),
             const SizedBox(height: AppSpacing.lg),
-            PrimaryButton(label: 'Confirm booking', onPressed: () {}),
+            PrimaryButton(
+              label: 'Confirm booking',
+              onPressed: _stage == BookingStage.requested
+                  ? () => setState(() => _stage = BookingStage.confirmed)
+                  : null,
+            ),
             const SizedBox(height: AppSpacing.xxl),
 
             SectionLabel('Trip', trailing: _stageBadge()),
@@ -123,7 +160,8 @@ class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
                     child: SecondaryButton(
                       label: 'Start trip',
                       icon: Icons.play_arrow_rounded,
-                      onPressed: _stage == _TripStage.confirmed ? () => setState(() => _stage = _TripStage.inTrip) : null,
+                      onPressed:
+                          _stage == BookingStage.confirmed ? () => setState(() => _stage = BookingStage.inTrip) : null,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
@@ -131,19 +169,27 @@ class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
                     child: SecondaryButton(
                       label: 'Complete trip',
                       icon: Icons.flag_rounded,
-                      onPressed: _stage == _TripStage.inTrip ? () => setState(() => _stage = _TripStage.completed) : null,
+                      onPressed:
+                          _stage == BookingStage.inTrip ? () => setState(() => _stage = BookingStage.completed) : null,
                     ),
                   ),
                 ],
               ),
             ),
-            if (_stage == _TripStage.completed) ...[
+            if (_stage == BookingStage.completed) ...[
               const SizedBox(height: AppSpacing.lg),
-              const LabeledField(label: 'Balance received (₹)', initialValue: '13,500', keyboardType: TextInputType.number),
+              LabeledField(
+                label: 'Balance received (₹)',
+                initialValue: '${booking.totalFare - _amountPaid}',
+                keyboardType: TextInputType.number,
+              ),
               const SizedBox(height: AppSpacing.lg),
               PrimaryButton(
                 label: 'Record balance & settle',
-                onPressed: () => setState(() => _stage = _TripStage.settled),
+                onPressed: () => setState(() {
+                  _amountPaid = booking.totalFare;
+                  _stage = BookingStage.settled;
+                }),
               ),
             ],
             const SizedBox(height: AppSpacing.xxl),
@@ -169,15 +215,7 @@ class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
   }
 
   Widget _stageBadge() {
-    switch (_stage) {
-      case _TripStage.confirmed:
-        return const StatusBadge(label: 'Confirmed', tone: StatusTone.info);
-      case _TripStage.inTrip:
-        return const StatusBadge(label: 'In trip', tone: StatusTone.warning);
-      case _TripStage.completed:
-        return const StatusBadge(label: 'Completed', tone: StatusTone.warning);
-      case _TripStage.settled:
-        return const StatusBadge(label: 'Settled', tone: StatusTone.success);
-    }
+    final (label, tone) = stageDisplay(_stage);
+    return StatusBadge(label: label, tone: tone);
   }
 }

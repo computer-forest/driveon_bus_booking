@@ -1,27 +1,33 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
+import '../../../core/widgets/app_buttons.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../data/mock_data.dart';
+import '../../../core/utils/date_format.dart';
+import '../../../data/availability.dart';
+import '../../../data/models.dart';
 import '../widgets/bus_result_card.dart';
 import 'bus_detail_screen.dart';
 
 class ResultsScreen extends StatelessWidget {
-  const ResultsScreen({super.key, this.summary});
+  const ResultsScreen({super.key, required this.criteria});
 
-  /// Route + date/time line, formatted by the search screen from the
-  /// values the customer actually picked. Falls back to sample copy when
-  /// the screen is opened directly (e.g. in previews).
-  final String? summary;
+  /// What the customer asked for. Availability is applied against this, so
+  /// only buses the admin actually opened for this window are listed.
+  final SearchCriteria criteria;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final results = MockData.busResults;
+    final results = searchBuses(criteria);
+    final summary = criteria.summary;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${results.length} buses available', style: textTheme.titleMedium),
+        title: Text(
+          results.length == 1 ? '1 bus available' : '${results.length} buses available',
+          style: textTheme.titleMedium,
+        ),
       ),
       body: SafeArea(
         child: Column(
@@ -41,7 +47,7 @@ class ResultsScreen extends StatelessWidget {
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        summary ?? 'Thane → Mahabaleshwar · 14 Sep, 6:00 AM',
+                        summary,
                         style: textTheme.bodyMedium?.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -50,28 +56,29 @@ class ResultsScreen extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: ListView.separated(
+              child: results.isEmpty
+                  ? _emptyState(context)
+                  : ListView.separated(
                 padding: const EdgeInsets.fromLTRB(AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.xxl),
                 itemCount: results.length,
                 separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.lg),
                 itemBuilder: (context, index) {
                   final bus = results[index];
+                  final window = availabilityFor(bus, criteria.startsAt);
                   return _StaggeredEntrance(
                     index: index,
                     child: BusResultCard(
                       bus: bus,
+                      windowLabel: AppDateFormat.timeRange(window.start, window.end),
                       onSelect: () => confirmBusSelection(
                         context,
                         bus: bus,
-                        routeSummary: summary ?? 'Thane → Mahabaleshwar · 14 Sep, 6:00 AM',
+                        routeSummary: summary,
                       ),
                       onViewDetails: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => BusDetailScreen(
-                              bus: bus,
-                              routeSummary: summary ?? 'Thane → Mahabaleshwar · 14 Sep, 6:00 AM',
-                            ),
+                            builder: (_) => BusDetailScreen(bus: bus, routeSummary: summary),
                           ),
                         );
                       },
@@ -82,6 +89,33 @@ class ResultsScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _emptyState(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.xxxl, AppSpacing.xxl, AppSpacing.xxxl, 0),
+      child: Column(
+        children: [
+          const Icon(Icons.event_busy_rounded, size: 40, color: AppColors.textTertiary),
+          const SizedBox(height: AppSpacing.lg),
+          Text('No bus free for this window',
+              style: textTheme.titleMedium, textAlign: TextAlign.center),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Every bus is either booked, blocked, or outside its charter hours for the time you picked. Try a different time or date.',
+            style: textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          SecondaryButton(
+            label: 'Change search',
+            icon: Icons.tune_rounded,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
       ),
     );
   }

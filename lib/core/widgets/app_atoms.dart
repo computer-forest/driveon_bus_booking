@@ -81,7 +81,10 @@ class SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [Text(text, style: style), trailing!],
+        children: [
+          Flexible(child: Text(text, style: style, overflow: TextOverflow.ellipsis)),
+          Flexible(child: trailing!),
+        ],
       ),
     );
   }
@@ -99,6 +102,7 @@ class LabeledField extends StatelessWidget {
     this.onTap,
     this.suffixIcon,
     this.initialValue,
+    this.onChanged,
   });
 
   final String label;
@@ -109,6 +113,7 @@ class LabeledField extends StatelessWidget {
   final VoidCallback? onTap;
   final IconData? suffixIcon;
   final String? initialValue;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -123,6 +128,7 @@ class LabeledField extends StatelessWidget {
           keyboardType: keyboardType,
           readOnly: readOnly,
           onTap: onTap,
+          onChanged: onChanged,
           style: Theme.of(context).textTheme.bodyLarge,
           decoration: InputDecoration(
             hintText: hint,

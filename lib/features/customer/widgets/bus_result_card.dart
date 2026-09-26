@@ -8,9 +8,18 @@ import '../../../core/widgets/status_badge.dart';
 import '../../../data/models.dart';
 
 class BusResultCard extends StatelessWidget {
-  const BusResultCard({super.key, required this.bus, required this.onSelect, required this.onViewDetails});
+  const BusResultCard({
+    super.key,
+    required this.bus,
+    required this.windowLabel,
+    required this.onSelect,
+    required this.onViewDetails,
+  });
 
-  final BusResult bus;
+  final BusRecord bus;
+
+  /// The charter window the admin set for the day being searched.
+  final String windowLabel;
   final VoidCallback onSelect;
   final VoidCallback onViewDetails;
 
@@ -71,7 +80,21 @@ class BusResultCard extends StatelessWidget {
                 const StatusBadge(label: 'AC'),
                 const SizedBox(width: AppSpacing.sm),
               ],
-              Text(bus.seatType, style: textTheme.bodyMedium),
+              Expanded(
+                child: Text(bus.seatType,
+                    overflow: TextOverflow.ellipsis, style: textTheme.bodyMedium),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              const Icon(Icons.schedule_rounded, size: 14, color: AppColors.textTertiary),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text('Available $windowLabel',
+                    overflow: TextOverflow.ellipsis, style: textTheme.labelMedium),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),

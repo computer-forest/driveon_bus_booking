@@ -12,7 +12,6 @@ import 'blackout_maintenance_screen.dart';
 import 'booking_queue_screen.dart';
 import 'bus_calendar_screen.dart';
 import 'bus_list_screen.dart';
-import 'driver_list_screen.dart';
 import 'masters_config_screen.dart';
 import 'notification_templates_screen.dart';
 import 'reports_screen.dart';
@@ -45,7 +44,7 @@ class AdminDashboardScreen extends StatelessWidget {
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Text(
-                      '${MockData.queue.length} bookings waiting in the queue',
+                      '${MockData.bookings.where((b) => b.isHold).length} bookings waiting in the queue',
                       style: textTheme.titleSmall?.copyWith(color: Colors.white),
                     ),
                   ),
@@ -74,7 +73,6 @@ class AdminDashboardScreen extends StatelessWidget {
             const SectionLabel('Manage'),
             _shortcut(context, Icons.storefront_outlined, 'Vendors', const VendorListScreen()),
             _shortcut(context, Icons.directions_bus_filled_outlined, 'Buses', const BusListScreen()),
-            _shortcut(context, Icons.badge_outlined, 'Drivers', const DriverListScreen()),
             _shortcut(context, Icons.block_rounded, 'Blackout & maintenance', const BlackoutMaintenanceScreen()),
             _shortcut(context, Icons.tune_rounded, 'Masters & configuration', const MastersConfigScreen()),
             _shortcut(context, Icons.mark_email_unread_outlined, 'Notification & email templates', const NotificationTemplatesScreen()),
