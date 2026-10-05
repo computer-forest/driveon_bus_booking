@@ -14,6 +14,9 @@ class StoreKeys {
   static const sessionPhone = 'fake_session_phone';
   static const sessionOnboarded = 'fake_session_onboarded';
   static String profile(String uid) => 'fake_profile_$uid';
+
+  /// Cleared on logout: the saved choice and number on this device.
+  static const deviceKeys = [lastPhone, sessionOnboarded, biometricEnabled];
 }
 
 abstract class SecureStore {

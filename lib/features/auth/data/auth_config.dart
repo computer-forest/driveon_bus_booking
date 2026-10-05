@@ -61,3 +61,12 @@ class Msg91Config {
 /// Development switch: replaces MSG91 with an on-device fake that accepts
 /// any code except `0000`, so the app can be demoed without credentials.
 const bool useFakeOtp = bool.fromEnvironment('MSG91_FAKE');
+
+/// Use the real Firebase backend (customers and staff sign in against
+/// `driveon-charter`). Off by default so builds keep working with the
+/// on-device stand-in until the sign-in function is deployed.
+const bool useFirebase = bool.fromEnvironment('USE_FIREBASE');
+
+/// Point Firebase at local emulators on this host (`127.0.0.1` on a desktop
+/// or iOS simulator, `10.0.2.2` on an Android emulator). Empty = the real project.
+const String firebaseEmulatorHost = String.fromEnvironment('FIREBASE_EMULATOR_HOST');

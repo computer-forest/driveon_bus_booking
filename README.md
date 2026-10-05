@@ -109,3 +109,54 @@ In the MSG91 dashboard the widget needs **Mobile Integration on** and
 app uses an on-device stand-in (`LocalTokenVerifier`, behind the
 `TokenVerifier` interface) that accepts any token, so **sessions are not
 yet verified server-side**.
+
+## Firebase backend (Stage 1)
+
+Project `driveon-charter` (Firestore in `asia-south1`). App ID on every
+platform: `com.busbooking.driveon.charter`. The generated
+`google-services.json` / `GoogleService-Info.plist` are gitignored; recreate
+them with `flutterfire configure --project=driveon-charter`.
+
+The app still uses the on-device stand-in for sign-in unless you build with
+`--dart-define=USE_FIREBASE=true`. Turn that on once the functions are
+deployed (needs the Blaze plan).
+
+| What | Where |
+|---|---|
+| Customer sign-in: MSG91 token -> Firebase custom token, role claim | `functions/src/verifyMsg91Token.ts` |
+| Admin-only role changes; account deletion with data erasure | `functions/src/setUserRole.ts`, `deleteAccount.ts` |
+| Baseline rules: deny everything except a customer's own `users/{uid}` | `firestore.rules` |
+| App side | `lib/features/auth/data/firebase_auth_repository.dart` |
+
+**Run it locally against the emulators** (needs Node and JDK 21+):
+
+```bash
+cd functions && npm install && npm run build && cd ..
+firebase emulators:start          # auth 9099, functions 5001, firestore 8085
+flutter run \
+  --dart-define=USE_FIREBASE=true \
+  --dart-define=FIREBASE_EMULATOR_HOST=127.0.0.1 \
+  --dart-define=MSG91_FAKE=true     # 10.0.2.2 instead of 127.0.0.1 on an Android emulator
+```
+
+With `MSG91_FAKE=true` the emulator's function accepts the fake token and
+trusts the number the app sends. That branch only runs when
+`FUNCTIONS_EMULATOR=true`, so it cannot run in production.
+
+**Tests**
+
+```bash
+cd rules-tests && npm install
+npm test        # security rules
+npm run e2e     # functions + rules + auth together, in the emulators
+```
+
+**Create the first staff account** (it cannot come from the app):
+
+```bash
+cd functions
+FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 npm run create-admin -- you@example.com "Your Name" 'password'
+```
+
+For the real project, point `GOOGLE_APPLICATION_CREDENTIALS` at a service
+account key instead, and delete the key afterwards.

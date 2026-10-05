@@ -1,15 +1,21 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'data/providers.dart';
+import 'firebase_options.dart';
 import 'features/auth/data/auth_config.dart';
 import 'features/auth/data/biometric_service.dart';
+import 'features/auth/data/firebase_auth_repository.dart';
 import 'features/auth/data/msg91_otp_service.dart';
 import 'features/auth/data/secure_store.dart';
 import 'features/auth/presentation/auth_gate.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final msg91 = Msg91Config.fromEnvironment();
@@ -18,15 +24,34 @@ void main() {
     return;
   }
 
+  if (useFirebase) await _initFirebase();
+
   runApp(ProviderScope(
     overrides: [
       authConfigProvider.overrideWithValue(AuthConfig.fromEnvironment()),
       secureStoreProvider.overrideWithValue(const FlutterSecureStore()),
       biometricServiceProvider.overrideWith((ref) => LocalAuthBiometricService()),
+      if (useFirebase)
+        authRepositoryProvider.overrideWith((ref) => FirebaseAuthRepository(
+              auth: FirebaseAuth.instance,
+              firestore: FirebaseFirestore.instance,
+              functions: CloudBackendFunctions(),
+              store: ref.watch(secureStoreProvider),
+            )),
       otpServiceProvider.overrideWith((ref) => useFakeOtp ? FakeOtpService() : Msg91OtpService(msg91)),
     ],
     child: const CharterBookingApp(),
   ));
+}
+
+Future<void> _initFirebase() async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  if (firebaseEmulatorHost.isNotEmpty) {
+    await FirebaseAuth.instance.useAuthEmulator(firebaseEmulatorHost, 9099);
+    FirebaseFirestore.instance.useFirestoreEmulator(firebaseEmulatorHost, 8085);
+    FirebaseFunctions.instanceFor(region: CloudBackendFunctions.region)
+        .useFunctionsEmulator(firebaseEmulatorHost, 5001);
+  }
 }
 
 class CharterBookingApp extends ConsumerWidget {

@@ -1,1 +1,72 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"driveon-charter","appId":"1:846438524198:android:5072f46d2b7e2f8b4d4de7","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"driveon-charter","appId":"1:846438524198:ios:60d5fc9afd9c61704d4de7","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"macos":{"default":{"projectId":"driveon-charter","appId":"1:846438524198:ios:60d5fc9afd9c61704d4de7","uploadDebugSymbols":false,"fileOutput":"macos/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"driveon-charter","configurations":{"android":"1:846438524198:android:5072f46d2b7e2f8b4d4de7","ios":"1:846438524198:ios:60d5fc9afd9c61704d4de7","macos":"1:846438524198:ios:60d5fc9afd9c61704d4de7"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "driveon-charter",
+          "appId": "1:846438524198:android:5072f46d2b7e2f8b4d4de7",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "driveon-charter",
+          "appId": "1:846438524198:ios:60d5fc9afd9c61704d4de7",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "driveon-charter",
+          "appId": "1:846438524198:ios:60d5fc9afd9c61704d4de7",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "driveon-charter",
+          "configurations": {
+            "android": "1:846438524198:android:5072f46d2b7e2f8b4d4de7",
+            "ios": "1:846438524198:ios:60d5fc9afd9c61704d4de7",
+            "macos": "1:846438524198:ios:60d5fc9afd9c61704d4de7"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ],
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "functions": {
+      "port": 5001
+    },
+    "firestore": {
+      "port": 8085
+    },
+    "ui": {
+      "enabled": true
+    },
+    "singleProjectMode": true
+  }
+}

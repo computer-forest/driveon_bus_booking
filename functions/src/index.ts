@@ -1,5 +1,11 @@
 import { initializeApp } from "firebase-admin/app";
+import { setGlobalOptions } from "firebase-functions/v2";
+
+// Mumbai, next to Firestore. The app calls these with the same region.
+setGlobalOptions({ region: "asia-south1" });
 
 initializeApp();
 
 export { verifyMsg91Token } from "./verifyMsg91Token";
+export { setUserRole } from "./setUserRole";
+export { deleteAccount } from "./deleteAccount";
