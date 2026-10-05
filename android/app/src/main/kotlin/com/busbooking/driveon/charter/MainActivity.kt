@@ -1,4 +1,4 @@
-package com.busbooking.driveon.bus_rental_app
+package com.busbooking.driveon.charter
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 
