@@ -3,7 +3,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_buttons.dart';
-import 'login_screen.dart';
+import '../../auth/presentation/mobile_number_screen.dart';
 
 class _Slide {
   const _Slide({required this.icon, required this.title, required this.body});
@@ -44,7 +44,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _next() {
     if (_index == _slides.length - 1) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(builder: (_) => const MobileNumberScreen()),
       );
       return;
     }
@@ -70,7 +70,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 child: TextButton(
                   onPressed: () => Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    MaterialPageRoute(builder: (_) => const MobileNumberScreen()),
                   ),
                   child: const Text('Skip'),
                 ),

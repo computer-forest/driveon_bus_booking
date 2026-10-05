@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -6,31 +7,57 @@ import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../data/models.dart';
+import '../../../data/providers.dart';
+import '../../../data/repositories/repositories.dart';
 import 'hold_screen.dart';
 
 /// Shared by the results list's "Select this bus" fast path and the bus
-/// detail screen: shows the hold confirmation sheet, and pushes
-/// [HoldScreen] if the customer confirms. Returns once navigation settles.
-Future<void> confirmBusSelection(BuildContext context, {required BusRecord bus, required String routeSummary}) async {
+/// detail screen: shows the hold confirmation sheet, asks the backend to
+/// hold the bus, and opens [HoldScreen] for the resulting booking. If the
+/// bus was taken in the meantime the customer is told and stays put.
+Future<void> confirmBusSelection(
+  BuildContext context,
+  WidgetRef ref, {
+  required BusRecord bus,
+  required SearchCriteria criteria,
+}) async {
   final confirmed = await showModalBottomSheet<bool>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
-    builder: (context) => _SelectionConfirmationSheet(bus: bus, routeSummary: routeSummary),
+    builder: (context) => _SelectionConfirmationSheet(bus: bus, routeSummary: criteria.summary),
   );
-  if (confirmed == true && context.mounted) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HoldScreen()));
+  if (confirmed != true || !context.mounted) return;
+
+  final messenger = ScaffoldMessenger.of(context);
+  final navigator = Navigator.of(context);
+  final customer = await ref.read(authRepositoryProvider).authState().first;
+  if (customer == null) return;
+  final config = await ref.read(configRepositoryProvider).watch().first;
+
+  try {
+    final booking = await ref.read(bookingRepositoryProvider).createHold(
+          bus: bus,
+          criteria: criteria,
+          customer: customer,
+          holdFor: config.holdDuration,
+        );
+    navigator.push(MaterialPageRoute(builder: (_) => HoldScreen(booking: booking)));
+  } on BusUnavailableException catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(e.toString())));
   }
 }
 
-class BusDetailScreen extends StatelessWidget {
-  const BusDetailScreen({super.key, required this.bus, required this.routeSummary});
+class BusDetailScreen extends ConsumerWidget {
+  const BusDetailScreen({super.key, required this.bus, required this.criteria});
 
   final BusRecord bus;
-  final String routeSummary;
+  final SearchCriteria criteria;
+
+  String get routeSummary => criteria.summary;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(title: Text('${bus.capacity} seater')),
@@ -103,7 +130,7 @@ class BusDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.xl),
               child: PrimaryButton(
                 label: 'Select this bus',
-                onPressed: () => confirmBusSelection(context, bus: bus, routeSummary: routeSummary),
+                onPressed: () => confirmBusSelection(context, ref, bus: bus, criteria: criteria),
               ),
             ),
           ],

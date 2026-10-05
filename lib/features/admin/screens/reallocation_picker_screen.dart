@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -7,28 +8,31 @@ import '../../../core/widgets/app_buttons.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../data/availability.dart';
-import '../../../data/mock_data.dart';
+import '../../../data/models.dart';
+import '../../../data/providers.dart';
 
 /// REA-01..07: every bus free for the booking's exact window (including
 /// buffer), a mandatory reason, and — for a round trip — the new bus must
 /// be free for the entire remaining window, not just one leg.
-class ReallocationPickerScreen extends StatefulWidget {
+///
+/// Pops the chosen [BusRecord], or nothing if the admin backs out.
+class ReallocationPickerScreen extends ConsumerStatefulWidget {
   const ReallocationPickerScreen({
     super.key,
-    required this.currentBusReg,
+    required this.currentBusId,
     required this.start,
     required this.end,
   });
 
-  final String currentBusReg;
+  final String currentBusId;
   final DateTime start;
   final DateTime end;
 
   @override
-  State<ReallocationPickerScreen> createState() => _ReallocationPickerScreenState();
+  ConsumerState<ReallocationPickerScreen> createState() => _ReallocationPickerScreenState();
 }
 
-class _ReallocationPickerScreenState extends State<ReallocationPickerScreen> {
+class _ReallocationPickerScreenState extends ConsumerState<ReallocationPickerScreen> {
   String? _selectedBus;
   String? _reason;
   bool _changeCost = false;
@@ -43,8 +47,14 @@ class _ReallocationPickerScreenState extends State<ReallocationPickerScreen> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final freeBuses = MockData.buses
-        .where((b) => b.regNumber != widget.currentBusReg && isBusFree(b, widget.start, widget.end))
+    final bookings = ref.watch(bookingsProvider).items;
+    final blackouts = ref.watch(blackoutsProvider).items;
+    final allBuses = ref.watch(busesProvider).items;
+    final current = allBuses.where((b) => b.id == widget.currentBusId).firstOrNull;
+    final freeBuses = allBuses
+        .where((b) =>
+            b.id != widget.currentBusId &&
+            isBusFree(b, widget.start, widget.end, bookings: bookings, blackouts: blackouts))
         .toList();
     return Scaffold(
       appBar: AppBar(title: const Text('Reallocate bus')),
@@ -64,7 +74,7 @@ class _ReallocationPickerScreenState extends State<ReallocationPickerScreen> {
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Text(
-                            'Currently ${widget.currentBusReg} · free for '
+                            'Currently ${current?.regNumber ?? 'unassigned'} · free for '
                             '${AppDateFormat.dayMonth(widget.start)}, '
                             '${AppDateFormat.timeRange(TimeOfDay.fromDateTime(widget.start), TimeOfDay.fromDateTime(widget.end))}',
                             style: textTheme.labelMedium,
@@ -132,7 +142,9 @@ class _ReallocationPickerScreenState extends State<ReallocationPickerScreen> {
               padding: const EdgeInsets.fromLTRB(AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.xl),
               child: PrimaryButton(
                 label: 'Confirm reallocation',
-                onPressed: (_selectedBus != null && _reason != null) ? () => Navigator.of(context).pop(true) : null,
+                onPressed: (_selectedBus != null && _reason != null)
+                    ? () => Navigator.of(context).pop(freeBuses.firstWhere((b) => b.regNumber == _selectedBus))
+                    : null,
               ),
             ),
           ],

@@ -1,30 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../core/widgets/date_time_field.dart';
-import '../../../data/mock_data.dart';
+import '../../../data/ids.dart';
 import '../../../data/models.dart';
+import '../../../data/providers.dart';
 
 /// BUS-01: vendor selection is mandatory before anything else on this
 /// form — a bus cannot exist without a vendor. The driver and the weekly
 /// charter windows are set here too; the windows are what customer search
 /// filters on.
-class BusFormScreen extends StatefulWidget {
+class BusFormScreen extends ConsumerStatefulWidget {
   const BusFormScreen({super.key, this.bus});
 
   final BusRecord? bus;
 
   @override
-  State<BusFormScreen> createState() => _BusFormScreenState();
+  ConsumerState<BusFormScreen> createState() => _BusFormScreenState();
 }
 
 const _unassigned = 'Unassigned';
 const _addNewDriver = '__add_new_driver__';
 
-class _BusFormScreenState extends State<BusFormScreen> {
+class _BusFormScreenState extends ConsumerState<BusFormScreen> {
   static const _capacities = [17, 20, 27, 30, 35, 40];
   static const _seatTypes = ['Pushback', 'Highback', 'Basic'];
   static const _dayNames = [
@@ -33,16 +35,17 @@ class _BusFormScreenState extends State<BusFormScreen> {
 
   late final _regNumber = TextEditingController(text: widget.bus?.regNumber ?? '');
   late final _baseCity = TextEditingController(text: widget.bus?.baseCity ?? '');
+  late final _gpsLink = TextEditingController(text: widget.bus?.gpsLink ?? '');
   final _newDriverName = TextEditingController();
   final _newDriverPhone = TextEditingController();
   final _newDriverLicence = TextEditingController();
 
-  late String? _vendor = widget.bus?.vendorName;
+  late String? _vendorId = widget.bus?.vendorId;
   late int _capacity = widget.bus?.capacity ?? 20;
   late String _seatType = widget.bus?.seatType.split(' ').first ?? 'Pushback';
   late bool _ac = widget.bus?.ac ?? true;
   late bool _active = widget.bus?.active ?? true;
-  late String _driver = widget.bus?.driverName ?? _unassigned;
+  late String _driver = widget.bus?.driverId ?? _unassigned;
   late final List<DayAvailability> _week = List<DayAvailability>.from(
     widget.bus?.weeklyAvailability ?? List.filled(7, const DayAvailability(available: true)),
   );
@@ -54,6 +57,7 @@ class _BusFormScreenState extends State<BusFormScreen> {
   void dispose() {
     _regNumber.dispose();
     _baseCity.dispose();
+    _gpsLink.dispose();
     _newDriverName.dispose();
     _newDriverPhone.dispose();
     _newDriverLicence.dispose();
@@ -61,10 +65,10 @@ class _BusFormScreenState extends State<BusFormScreen> {
   }
 
   List<DriverRecord> get _vendorDrivers =>
-      MockData.drivers.where((d) => d.vendorName == _vendor).toList();
+      ref.watch(driversProvider).items.where((d) => d.vendorId == _vendorId).toList();
 
   bool get _canSave {
-    if (_vendor == null || _regNumber.text.trim().isEmpty) return false;
+    if (_vendorId == null || _regNumber.text.trim().isEmpty) return false;
     if (_addingDriver) {
       return _newDriverName.text.trim().isNotEmpty && _newDriverPhone.text.trim().isNotEmpty;
     }
@@ -79,43 +83,53 @@ class _BusFormScreenState extends State<BusFormScreen> {
     });
   }
 
-  void _save() {
-    var driverName = _driver;
+  Future<void> _save() async {
+    final vendor = ref.read(vendorsProvider).items.firstWhere((v) => v.id == _vendorId);
+    final drivers = ref.read(driversProvider).items;
+
+    String? driverId;
+    var driverName = _unassigned;
 
     if (_addingDriver) {
       final licence = _newDriverLicence.text.trim();
-      driverName = _newDriverName.text.trim();
-      MockData.drivers.add(DriverRecord(
-        name: driverName,
+      final driver = DriverRecord(
+        id: newId('drv'),
+        name: _newDriverName.text.trim(),
         phone: _newDriverPhone.text.trim(),
-        vendorName: _vendor!,
+        vendorId: vendor.id,
+        vendorName: vendor.name,
         licenceNumber: licence.isEmpty ? null : licence,
-      ));
+      );
+      await ref.read(driverRepositoryProvider).upsert(driver);
+      driverId = driver.id;
+      driverName = driver.name;
+    } else if (_driver != _unassigned) {
+      final driver = drivers.firstWhere((d) => d.id == _driver);
+      driverId = driver.id;
+      driverName = driver.name;
     }
 
+    final gps = _gpsLink.text.trim();
     final record = BusRecord(
+      id: widget.bus?.id ?? newId('bus'),
       regNumber: _regNumber.text.trim(),
-      vendorName: _vendor!,
+      vendorId: vendor.id,
+      vendorName: vendor.name,
       capacity: _capacity,
       seatType: '$_seatType seats',
       ac: _ac,
       baseCity: _baseCity.text.trim(),
+      driverId: driverId,
       driverName: driverName,
       active: _active,
+      gpsLink: gps.isEmpty ? null : gps,
       weeklyAvailability: _week,
       amenities: widget.bus?.amenities ?? [if (_ac) 'AC', '$_seatType seats'],
       photoCount: widget.bus?.photoCount ?? 4,
     );
+    await ref.read(busRepositoryProvider).upsert(record);
 
-    final original = widget.bus?.regNumber;
-    final index = original == null ? -1 : MockData.buses.indexWhere((b) => b.regNumber == original);
-    if (index >= 0) {
-      MockData.buses[index] = record;
-    } else {
-      MockData.buses.add(record);
-    }
-
-    Navigator.of(context).pop();
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -129,14 +143,16 @@ class _BusFormScreenState extends State<BusFormScreen> {
           children: [
             const SectionLabel('Vendor'),
             _dropdown<String>(
-              value: _vendor,
+              value: _vendorId,
               hint: 'Select vendor (required)',
-              items: MockData.vendors
+              items: ref
+                  .watch(vendorsProvider)
+                  .items
                   .where((v) => v.active)
-                  .map((v) => DropdownMenuItem(value: v.name, child: Text(v.name)))
+                  .map((v) => DropdownMenuItem(value: v.id, child: Text(v.name)))
                   .toList(),
               onChanged: (v) => setState(() {
-                _vendor = v;
+                _vendorId = v;
                 _driver = _unassigned;
               }),
             ),
@@ -182,15 +198,15 @@ class _BusFormScreenState extends State<BusFormScreen> {
               items: [
                 const DropdownMenuItem(value: _unassigned, child: Text(_unassigned)),
                 for (final d in _vendorDrivers)
-                  DropdownMenuItem(value: d.name, child: Text('${d.name} · ${d.phone}')),
+                  DropdownMenuItem(value: d.id, child: Text('${d.name} · ${d.phone}')),
                 const DropdownMenuItem(
                   value: _addNewDriver,
                   child: Text('+ Add new driver', style: TextStyle(color: AppColors.primary)),
                 ),
               ],
-              onChanged: _vendor == null ? null : (v) => setState(() => _driver = v ?? _unassigned),
+              onChanged: _vendorId == null ? null : (v) => setState(() => _driver = v ?? _unassigned),
             ),
-            if (_vendor == null) ...[
+            if (_vendorId == null) ...[
               const SizedBox(height: AppSpacing.sm),
               Text('Pick a vendor first — drivers are listed per vendor.', style: textTheme.labelMedium),
             ],
@@ -234,7 +250,7 @@ class _BusFormScreenState extends State<BusFormScreen> {
             const SizedBox(height: AppSpacing.md),
             for (var i = 0; i < 7; i++) _dayRow(i),
             const SizedBox(height: AppSpacing.lg),
-            const LabeledField(label: 'GPS link', hint: 'https://...'),
+            LabeledField(label: 'GPS link', controller: _gpsLink, hint: 'https://...'),
             const SizedBox(height: AppSpacing.lg),
             const SectionLabel('Photographs (up to 4)'),
             Row(
@@ -352,7 +368,9 @@ class _BusFormScreenState extends State<BusFormScreen> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
-          value: value,
+          // The list may still be loading, in which case the saved choice is
+          // not among the items yet and must not be passed as the value.
+          value: items.any((item) => item.value == value) ? value : null,
           isExpanded: true,
           hint: Text(hint),
           items: items,

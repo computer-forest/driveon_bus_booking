@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../data/mock_data.dart';
+import '../../../data/providers.dart';
 import '../widgets/admin_bottom_nav.dart';
 import '../widgets/booking_card.dart';
 import 'admin_booking_detail_screen.dart';
@@ -8,13 +9,15 @@ import 'bus_calendar_screen.dart';
 import 'bus_list_screen.dart';
 import 'reports_screen.dart';
 
-class BookingQueueScreen extends StatelessWidget {
+class BookingQueueScreen extends ConsumerWidget {
   const BookingQueueScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
-    final holds = MockData.bookings.where((b) => b.isHold).toList();
+    // Soonest to lapse first, so the admin works the most urgent hold.
+    final holds = ref.watch(bookingsProvider).items.where((b) => b.isHold).toList()
+      ..sort((a, b) => (a.holdExpiresAt ?? a.start).compareTo(b.holdExpiresAt ?? b.start));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Booking queue')),

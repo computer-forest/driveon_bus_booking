@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:charter_booking_ui/core/theme/app_theme.dart';
@@ -7,6 +8,10 @@ import 'package:charter_booking_ui/data/models.dart';
 import 'package:charter_booking_ui/features/admin/screens/bus_calendar_screen.dart';
 import 'package:charter_booking_ui/features/admin/screens/bus_form_screen.dart';
 import 'package:charter_booking_ui/features/admin/screens/bus_list_screen.dart';
+import 'package:charter_booking_ui/features/customer/screens/home_search_screen.dart';
+import 'package:charter_booking_ui/features/customer/screens/package_rates_screen.dart';
+import 'package:charter_booking_ui/features/customer/screens/package_seaters_screen.dart';
+import 'package:charter_booking_ui/features/customer/screens/popular_packages_screen.dart';
 import 'package:charter_booking_ui/features/customer/screens/results_screen.dart';
 
 /// Renders the rebuilt screens at phone width. Overflows and layout
@@ -15,7 +20,7 @@ Future<void> pumpScreen(WidgetTester tester, Widget screen) async {
   tester.view.physicalSize = const Size(1170, 2532);
   tester.view.devicePixelRatio = 3.0;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(MaterialApp(theme: AppTheme.light, home: screen));
+  await tester.pumpWidget(ProviderScope(child: MaterialApp(theme: AppTheme.light, home: screen)));
   await tester.pump(const Duration(milliseconds: 400));
 }
 
@@ -53,13 +58,13 @@ void main() {
     // Rohan's confirmed trip: stage badge, driver and balance all readable
     // without tapping anything. Scrolling to the card's last line pulls
     // the whole card (including the badge above it) into view.
-    await tester.scrollUntilVisible(find.textContaining('₹13500 due'), 300, scrollable: scrollable);
+    await tester.scrollUntilVisible(find.textContaining('₹13,500 due'), 300, scrollable: scrollable);
     expect(find.text('CB-20260914-0472'), findsWidgets);
     expect(find.text('Confirmed'), findsWidgets);
     expect(find.textContaining('Suresh Patil'), findsWidgets);
 
     // Anita's trip is in progress.
-    await tester.scrollUntilVisible(find.textContaining('₹9000 due'), 300, scrollable: scrollable);
+    await tester.scrollUntilVisible(find.textContaining('₹9,000 due'), 300, scrollable: scrollable);
     expect(find.text('In trip'), findsWidgets);
   });
 
@@ -165,5 +170,71 @@ void main() {
 
     expect(find.text('0 buses available'), findsOneWidget);
     expect(find.text('No bus free for this window'), findsOneWidget);
+  });
+
+  group('outstation popular packages', () {
+    final mumbai = MockData.packageLocations.firstWhere((l) => l.city == 'Mumbai');
+    final thane = MockData.packageLocations.firstWhere((l) => l.city == 'Thane');
+
+    testWidgets('the entry card appears only once Outstation is selected', (tester) async {
+      await pumpScreen(tester, const HomeSearchScreen());
+
+      expect(find.text('Popular outstation packages'), findsNothing);
+
+      await tester.tap(find.text('Outstation'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Popular outstation packages'), findsOneWidget);
+    });
+
+    testWidgets('location list offers the three cities and a help footer', (tester) async {
+      await pumpScreen(tester, const PopularPackagesScreen());
+
+      expect(find.text('Popular packages available from'), findsOneWidget);
+      for (final city in ['Mumbai', 'Navi Mumbai', 'Thane']) {
+        expect(find.text(city), findsOneWidget);
+      }
+      expect(find.text('Call us'), findsOneWidget);
+      expect(find.text('WhatsApp'), findsOneWidget);
+    });
+
+    testWidgets('seater list offers the four classes', (tester) async {
+      await pumpScreen(tester, PackageSeatersScreen(location: mumbai));
+
+      expect(find.text('Packages from Mumbai'), findsOneWidget);
+      expect(find.text('17–20 seater Tempo traveller'), findsOneWidget);
+      expect(find.text('22 seater Bus'), findsOneWidget);
+      expect(find.text('27–30 seater Bus'), findsOneWidget);
+      expect(find.text('35–40 seater Bus'), findsOneWidget);
+    });
+
+    testWidgets('Mumbai tempo traveller chart shows the quoted rates, unflagged', (tester) async {
+      final tempo = mumbai.packages.first;
+      await pumpScreen(tester, PackageRatesScreen(location: mumbai, package: tempo));
+
+      expect(find.text('Trip'), findsOneWidget);
+      expect(find.text('1 day'), findsOneWidget);
+      expect(find.text('2 days'), findsOneWidget);
+      expect(find.text('Mumbai to Karjat & return'), findsOneWidget);
+      expect(find.text('₹10,500'), findsWidgets);
+      expect(find.text('₹16,000'), findsOneWidget);
+      // These rates are the client's own, so they carry no caveat.
+      expect(find.text('Sample rates'), findsNothing);
+    });
+
+    testWidgets('a chart with placeholder rates says so', (tester) async {
+      await pumpScreen(tester, PackageRatesScreen(location: thane, package: thane.packages[1]));
+
+      expect(find.text('Sample rates'), findsOneWidget);
+    });
+
+    testWidgets('every trip in the chart is listed', (tester) async {
+      final tempo = mumbai.packages.first;
+      await pumpScreen(tester, PackageRatesScreen(location: mumbai, package: tempo));
+
+      for (final trip in tempo.trips) {
+        expect(find.text('Mumbai to ${trip.destination} & return'), findsOneWidget);
+      }
+    });
   });
 }

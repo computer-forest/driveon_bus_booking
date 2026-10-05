@@ -1,68 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/date_format.dart';
+import '../../../core/utils/money_format.dart';
 import '../../../core/widgets/app_atoms.dart';
-import '../../../core/widgets/status_badge.dart';
-import '../../../data/mock_data.dart';
+import '../../../core/widgets/stage_badge.dart';
 import '../../../data/models.dart';
-
-String busLabelFor(String reg) {
-  for (final bus in MockData.buses) {
-    if (bus.regNumber == reg) return bus.regNumber;
-  }
-  return reg;
-}
-
-String driverNameFor(String reg) {
-  for (final bus in MockData.buses) {
-    if (bus.regNumber == reg) return bus.driverName;
-  }
-  return 'Unassigned';
-}
-
-(String, StatusTone) stageDisplay(BookingStage stage) {
-  switch (stage) {
-    case BookingStage.requested:
-      return ('Hold', StatusTone.warning);
-    case BookingStage.confirmed:
-      return ('Confirmed', StatusTone.info);
-    case BookingStage.inTrip:
-      return ('In trip', StatusTone.warning);
-    case BookingStage.completed:
-      return ('Completed', StatusTone.warning);
-    case BookingStage.settled:
-      return ('Settled', StatusTone.success);
-  }
-}
+import '../../../data/providers.dart';
 
 /// The one place a booking's full detail is readable without tapping
 /// anything — used on both the booking queue and the calendar's trip list.
-class BookingCard extends StatelessWidget {
+class BookingCard extends ConsumerWidget {
   const BookingCard({super.key, required this.booking, required this.onTap});
 
   final Booking booking;
   final VoidCallback onTap;
 
-  String get _clock {
-    final m = (booking.holdSecondsLeft ~/ 60).toString().padLeft(2, '0');
-    final s = (booking.holdSecondsLeft % 60).toString().padLeft(2, '0');
-    return '$m:$s';
-  }
-
-  bool get _holdUrgent => booking.holdSecondsLeft < 300;
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
-    final (stageLabel, stageTone) = stageDisplay(booking.stage);
+    final now = ref.watch(clockProvider)();
+    final secondsLeft = booking.holdSecondsLeft(now);
+    final holdUrgent = secondsLeft < 300;
+    final clock = '${(secondsLeft ~/ 60).toString().padLeft(2, '0')}:'
+        '${(secondsLeft % 60).toString().padLeft(2, '0')}';
+    final bus = ref.watch(busesProvider).items.where((b) => b.id == booking.busId).firstOrNull;
+    final driverName = bus?.driverName ?? 'Unassigned';
     final moneyLine = booking.isHold
         ? 'Cost not yet confirmed'
         : booking.balanceDue > 0
-            ? '₹${booking.totalFare} · ₹${booking.balanceDue} due'
-            : '₹${booking.totalFare} · Paid in full';
+            ? '${AppMoneyFormat.rupees(booking.totalFare)} · ${AppMoneyFormat.rupees(booking.balanceDue)} due'
+            : '${AppMoneyFormat.rupees(booking.totalFare)} · Paid in full';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -79,23 +50,23 @@ class BookingCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 5),
                     decoration: BoxDecoration(
-                      color: _holdUrgent ? AppColors.urgentTint : AppColors.surfaceAlt,
+                      color: holdUrgent ? AppColors.urgentTint : AppColors.surfaceAlt,
                       borderRadius: AppRadius.tagRadius,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.timer_outlined,
-                            size: 13, color: _holdUrgent ? AppColors.urgent : AppColors.textSecondary),
+                            size: 13, color: holdUrgent ? AppColors.urgent : AppColors.textSecondary),
                         const SizedBox(width: 4),
-                        Text(_clock,
+                        Text(clock,
                             style: textTheme.titleSmall
-                                ?.copyWith(color: _holdUrgent ? AppColors.urgent : AppColors.textSecondary)),
+                                ?.copyWith(color: holdUrgent ? AppColors.urgent : AppColors.textSecondary)),
                       ],
                     ),
                   )
                 else
-                  StatusBadge(label: stageLabel, tone: stageTone),
+                  StageBadge(booking.stage),
               ],
             ),
             const SizedBox(height: 2),
@@ -105,7 +76,7 @@ class BookingCard extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               '${AppDateFormat.timeRange(TimeOfDay.fromDateTime(booking.start), TimeOfDay.fromDateTime(booking.end))} · '
-              '${busLabelFor(booking.busReg)} · ${driverNameFor(booking.busReg)}',
+              '${booking.busReg} · $driverName',
               style: textTheme.labelSmall,
             ),
             const SizedBox(height: 4),

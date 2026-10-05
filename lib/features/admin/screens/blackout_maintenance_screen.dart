@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -6,27 +7,21 @@ import '../../../core/utils/date_format.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../core/widgets/date_time_field.dart';
-import '../../../data/mock_data.dart';
+import '../../../data/ids.dart';
 import '../../../data/models.dart';
+import '../../../data/providers.dart';
 
 /// BUS-04: blackout dates and maintenance windows, set by Admin only.
 /// These are BLACKOUT / MAINTENANCE blocks in the availability engine
 /// (BRD Section 5.1) — a bus is excluded from search for their span.
-class BlackoutMaintenanceScreen extends StatefulWidget {
+class BlackoutMaintenanceScreen extends ConsumerStatefulWidget {
   const BlackoutMaintenanceScreen({super.key});
 
   @override
-  State<BlackoutMaintenanceScreen> createState() => _BlackoutMaintenanceScreenState();
+  ConsumerState<BlackoutMaintenanceScreen> createState() => _BlackoutMaintenanceScreenState();
 }
 
-String busLabelFor(String reg) {
-  for (final bus in MockData.buses) {
-    if (bus.regNumber == reg) return bus.label;
-  }
-  return reg;
-}
-
-class _BlackoutMaintenanceScreenState extends State<BlackoutMaintenanceScreen> {
+class _BlackoutMaintenanceScreenState extends ConsumerState<BlackoutMaintenanceScreen> {
   Future<void> _addBlock() async {
     final entry = await showModalBottomSheet<BlackoutEntry>(
       context: context,
@@ -34,12 +29,16 @@ class _BlackoutMaintenanceScreenState extends State<BlackoutMaintenanceScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => const _AddBlackoutSheet(),
     );
-    if (entry != null) setState(() => MockData.blackouts.add(entry));
+    if (entry != null) await ref.read(blackoutRepositoryProvider).add(entry);
   }
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final blackouts = ref.watch(blackoutsProvider).items;
+    final buses = ref.watch(busesProvider).items;
+    String labelFor(String busId) =>
+        buses.where((b) => b.id == busId).firstOrNull?.label ?? 'Unknown bus';
     return Scaffold(
       appBar: AppBar(title: const Text('Blackout & maintenance')),
       floatingActionButton: FloatingActionButton.extended(
@@ -48,7 +47,7 @@ class _BlackoutMaintenanceScreenState extends State<BlackoutMaintenanceScreen> {
         label: const Text('Add block'),
       ),
       body: SafeArea(
-        child: MockData.blackouts.isEmpty
+        child: blackouts.isEmpty
             ? Padding(
                 padding: const EdgeInsets.only(top: AppSpacing.xxl),
                 child: Text('No blackouts or maintenance windows.',
@@ -57,10 +56,10 @@ class _BlackoutMaintenanceScreenState extends State<BlackoutMaintenanceScreen> {
             : ListView.separated(
                 padding: const EdgeInsets.fromLTRB(
                     AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.huge),
-                itemCount: MockData.blackouts.length,
+                itemCount: blackouts.length,
                 separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
                 itemBuilder: (context, i) {
-                  final b = MockData.blackouts[i];
+                  final b = blackouts[i];
                   return AppCard(
                     child: Row(
                       children: [
@@ -84,7 +83,7 @@ class _BlackoutMaintenanceScreenState extends State<BlackoutMaintenanceScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(busLabelFor(b.busReg), style: textTheme.titleSmall),
+                              Text(labelFor(b.busId), style: textTheme.titleSmall),
                               const SizedBox(height: 2),
                               Text(b.reason, style: textTheme.bodyMedium),
                               Text(
@@ -95,7 +94,7 @@ class _BlackoutMaintenanceScreenState extends State<BlackoutMaintenanceScreen> {
                           ),
                         ),
                         IconButton(
-                          onPressed: () => setState(() => MockData.blackouts.removeAt(i)),
+                          onPressed: () => ref.read(blackoutRepositoryProvider).remove(b.id),
                           icon: const Icon(Icons.close_rounded, size: 18),
                           color: AppColors.textTertiary,
                         ),
@@ -109,19 +108,19 @@ class _BlackoutMaintenanceScreenState extends State<BlackoutMaintenanceScreen> {
   }
 }
 
-class _AddBlackoutSheet extends StatefulWidget {
+class _AddBlackoutSheet extends ConsumerStatefulWidget {
   const _AddBlackoutSheet();
 
   @override
-  State<_AddBlackoutSheet> createState() => _AddBlackoutSheetState();
+  ConsumerState<_AddBlackoutSheet> createState() => _AddBlackoutSheetState();
 }
 
-class _AddBlackoutSheetState extends State<_AddBlackoutSheet> {
+class _AddBlackoutSheetState extends ConsumerState<_AddBlackoutSheet> {
   final _reason = TextEditingController();
   String? _bus;
   bool _isMaintenance = false;
-  DateTime _from = DateTime(2026, 9, 20);
-  DateTime _to = DateTime(2026, 9, 21);
+  late DateTime _from = ref.read(clockProvider)();
+  late DateTime _to = _from.add(const Duration(days: 1));
 
   @override
   void dispose() {
@@ -161,8 +160,10 @@ class _AddBlackoutSheetState extends State<_AddBlackoutSheet> {
                 value: _bus,
                 isExpanded: true,
                 hint: const Text('Select bus'),
-                items: MockData.buses
-                    .map((b) => DropdownMenuItem(value: b.regNumber, child: Text(b.regNumber)))
+                items: ref
+                    .watch(busesProvider)
+                    .items
+                    .map((b) => DropdownMenuItem(value: b.id, child: Text(b.regNumber)))
                     .toList(),
                 onChanged: (v) => setState(() => _bus = v),
               ),
@@ -195,7 +196,9 @@ class _AddBlackoutSheetState extends State<_AddBlackoutSheet> {
             onPressed: _bus == null
                 ? null
                 : () => Navigator.of(context).pop(BlackoutEntry(
-                      busReg: _bus!,
+                      id: newId('blk'),
+                      busId: _bus!,
+                      busReg: ref.read(busesProvider).items.firstWhere((b) => b.id == _bus).regNumber,
                       reason: _reason.text.trim().isEmpty ? 'Blocked by admin' : _reason.text.trim(),
                       from: _from,
                       to: _to,

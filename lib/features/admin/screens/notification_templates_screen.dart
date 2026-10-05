@@ -1,29 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_atoms.dart';
-import '../../../data/mock_data.dart';
+import '../../../data/models.dart';
+import '../../../data/providers.dart';
 
 /// NOTIF-06: notification and email templates, editable by Admin without
 /// an app release.
-class NotificationTemplatesScreen extends StatelessWidget {
+class NotificationTemplatesScreen extends ConsumerWidget {
   const NotificationTemplatesScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
+    final templates = ref.watch(templatesProvider).items;
     return Scaffold(
       appBar: AppBar(title: const Text('Notification & email templates')),
       body: SafeArea(
         child: ListView.separated(
           padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.xxl),
-          itemCount: MockData.templates.length,
+          itemCount: templates.length,
           separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
           itemBuilder: (context, i) {
-            final t = MockData.templates[i];
+            final t = templates[i];
             return AppCard(
-              onTap: () => _openEditor(context, t.name),
+              onTap: () => _openEditor(context, t),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -55,42 +58,69 @@ class NotificationTemplatesScreen extends StatelessWidget {
     );
   }
 
-  void _openEditor(BuildContext context, String name) {
+  void _openEditor(BuildContext context, MessageTemplate template) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: EdgeInsets.fromLTRB(
-          AppSpacing.xl,
-          AppSpacing.lg,
-          AppSpacing.xl,
-          AppSpacing.xl + MediaQuery.of(context).viewInsets.bottom,
-        ),
-        decoration: const BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Edit "$name"', style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: AppSpacing.lg),
-            TextField(
-              maxLines: 4,
-              decoration: const InputDecoration(hintText: 'Template body'),
-              controller: TextEditingController(
-                text: MockData.templates.firstWhere((t) => t.name == name).preview,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Save template')),
-            ),
-          ],
-        ),
+      builder: (context) => _TemplateEditor(template: template),
+    );
+  }
+}
+
+class _TemplateEditor extends ConsumerStatefulWidget {
+  const _TemplateEditor({required this.template});
+
+  final MessageTemplate template;
+
+  @override
+  ConsumerState<_TemplateEditor> createState() => _TemplateEditorState();
+}
+
+class _TemplateEditorState extends ConsumerState<_TemplateEditor> {
+  late final _body = TextEditingController(text: widget.template.preview);
+
+  @override
+  void dispose() {
+    _body.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    await ref.read(templateRepositoryProvider).save(widget.template.copyWith(preview: _body.text.trim()));
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.lg,
+        AppSpacing.xl,
+        AppSpacing.xl + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Edit "${widget.template.name}"', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: AppSpacing.lg),
+          TextField(
+            controller: _body,
+            maxLines: 4,
+            decoration: const InputDecoration(hintText: 'Template body'),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(onPressed: _save, child: const Text('Save template')),
+          ),
+        ],
       ),
     );
   }

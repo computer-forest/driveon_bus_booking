@@ -66,6 +66,7 @@ class _NavTapTarget extends StatelessWidget {
       onTap: onTap,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 180),
@@ -78,12 +79,14 @@ class _NavTapTarget extends StatelessWidget {
             child: Icon(icon, size: 22, color: color),
           ),
           const SizedBox(height: 3),
-          Text(
-            label,
-            style: Theme.of(context)
-                .textTheme
-                .labelSmall
-                ?.copyWith(color: color, fontWeight: selected ? FontWeight.w700 : FontWeight.w500),
+          Flexible(
+            child: Text(
+              label,
+              style: Theme.of(context)
+                  .textTheme
+                  .labelSmall
+                  ?.copyWith(color: color, fontWeight: selected ? FontWeight.w700 : FontWeight.w500),
+            ),
           ),
         ],
       ),

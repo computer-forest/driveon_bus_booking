@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:charter_booking_ui/data/availability.dart';
+import 'package:charter_booking_ui/data/mock_data.dart';
 import 'package:charter_booking_ui/data/models.dart';
 
 /// Seeded fleet these tests lean on (Mon 14 Sep 2026 is a Monday):
@@ -30,7 +31,19 @@ SearchCriteria criteria(
       summary: 'test',
     );
 
-List<String> regsFor(SearchCriteria c) => searchBuses(c).map((b) => b.regNumber).toList();
+List<String> regsFor(
+  SearchCriteria c, {
+  Duration bufferBefore = Duration.zero,
+  Duration bufferAfter = Duration.zero,
+}) =>
+    searchBuses(
+      c,
+      buses: MockData.buses,
+      bookings: MockData.bookings,
+      blackouts: MockData.blackouts,
+      bufferBefore: bufferBefore,
+      bufferAfter: bufferAfter,
+    ).map((b) => b.regNumber).toList();
 
 void main() {
   final monday = DateTime(2026, 9, 14);
@@ -97,5 +110,47 @@ void main() {
     // MH-12-AK-1120 is open Saturday but closed Sunday, so the return leg
     // takes it out even though the departure fits.
     expect(regsFor(overnight), isNot(contains('MH-12-AK-1120')));
+  });
+
+  group('buffers', () {
+    test('without a buffer, a trip can start the minute another ends', () {
+      // MH-04-BT-7781 is booked 3–8PM on Monday; 8–10PM is free.
+      expect(regsFor(criteria(monday, 20, 22)), contains('MH-04-BT-7781'));
+    });
+
+    test('a post-trip buffer rules out a start right after another trip', () {
+      expect(
+        regsFor(criteria(monday, 20, 22), bufferAfter: const Duration(minutes: 45)),
+        isNot(contains('MH-04-BT-7781')),
+      );
+    });
+
+    test('a pre-trip buffer rules out a trip ending right before another', () {
+      expect(
+        regsFor(criteria(monday, 14, 15), bufferBefore: const Duration(minutes: 90)),
+        isNot(contains('MH-04-BT-7781')),
+      );
+    });
+
+    test('a buffer does not touch a trip that is far enough away', () {
+      expect(
+        regsFor(criteria(monday, 21, 22), bufferAfter: const Duration(minutes: 45)),
+        contains('MH-04-BT-7781'),
+      );
+    });
+  });
+
+  group('blackoutOn', () {
+    test('finds the blackout covering a day, inclusive of both ends', () {
+      for (final day in [DateTime(2026, 9, 20), DateTime(2026, 9, 21), DateTime(2026, 9, 22)]) {
+        expect(blackoutOn('bus-7781', day, MockData.blackouts)?.id, 'blk-1');
+      }
+    });
+
+    test('is null outside the span or for another bus', () {
+      expect(blackoutOn('bus-7781', DateTime(2026, 9, 19), MockData.blackouts), isNull);
+      expect(blackoutOn('bus-7781', DateTime(2026, 9, 23), MockData.blackouts), isNull);
+      expect(blackoutOn('bus-9902', DateTime(2026, 9, 21), MockData.blackouts), isNull);
+    });
   });
 }

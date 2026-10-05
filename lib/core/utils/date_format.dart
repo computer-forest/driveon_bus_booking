@@ -35,6 +35,30 @@ class AppDateFormat {
     return '$hour$period';
   }
 
+  static bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+
+  static bool _isYesterday(DateTime at, DateTime now) =>
+      _sameDay(at, DateTime(now.year, now.month, now.day - 1));
+
+  /// How long ago [at] was, as of [now]: "2 min ago", "1 hr ago",
+  /// "Yesterday", then a plain date.
+  static String ago(DateTime at, DateTime now) {
+    final diff = now.difference(at);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+    if (_sameDay(at, now)) return '${diff.inHours} hr ago';
+    if (_isYesterday(at, now)) return 'Yesterday';
+    return dayMonth(at);
+  }
+
+  /// "Today, 10:42 AM", "Yesterday, 06:02 PM", then "12 Sep, 03:40 PM".
+  static String dayAndTime(DateTime at, DateTime now) {
+    final time = hourMinute(TimeOfDay.fromDateTime(at));
+    if (_sameDay(at, now)) return 'Today, $time';
+    if (_isYesterday(at, now)) return 'Yesterday, $time';
+    return '${dayMonth(at)}, $time';
+  }
+
   static String weekday(DateTime d) => _weekdays[d.weekday - 1];
 
   static String dayMonth(DateTime d) => '${d.day} ${_months[d.month - 1]}';

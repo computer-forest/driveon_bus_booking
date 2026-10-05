@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
+import '../../../data/ids.dart';
+import '../../../data/models.dart';
+import '../../../data/providers.dart';
 
 /// BOOK-09: on trip completion the customer is prompted to rate the bus,
 /// driver and overall service.
-class RatingScreen extends StatefulWidget {
-  const RatingScreen({super.key});
+class RatingScreen extends ConsumerStatefulWidget {
+  const RatingScreen({super.key, required this.booking});
+
+  final Booking booking;
 
   @override
-  State<RatingScreen> createState() => _RatingScreenState();
+  ConsumerState<RatingScreen> createState() => _RatingScreenState();
 }
 
-class _RatingScreenState extends State<RatingScreen> {
+class _RatingScreenState extends ConsumerState<RatingScreen> {
   int _busRating = 0;
   int _driverRating = 0;
   int _overallRating = 0;
@@ -27,6 +33,21 @@ class _RatingScreenState extends State<RatingScreen> {
   }
 
   bool get _canSubmit => _busRating > 0 && _driverRating > 0 && _overallRating > 0;
+
+  Future<void> _submit() async {
+    await ref.read(ratingRepositoryProvider).submit(
+          Rating(
+            id: newId('rat'),
+            bookingId: widget.booking.id,
+            bus: _busRating,
+            driver: _driverRating,
+            overall: _overallRating,
+            feedback: _feedbackController.text.trim(),
+            createdAt: ref.read(clockProvider)(),
+          ),
+        );
+    if (mounted) setState(() => _submitted = true);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +118,7 @@ class _RatingScreenState extends State<RatingScreen> {
             const SizedBox(height: AppSpacing.xxl),
             PrimaryButton(
               label: 'Submit rating',
-              onPressed: _canSubmit ? () => setState(() => _submitted = true) : null,
+              onPressed: _canSubmit ? _submit : null,
             ),
           ],
         ),

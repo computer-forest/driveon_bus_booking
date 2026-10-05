@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../data/availability.dart';
-import '../../../data/mock_data.dart';
 import '../../../data/models.dart';
+import '../../../data/providers.dart';
 import '../widgets/admin_bottom_nav.dart';
 import '../widgets/booking_card.dart';
 import 'admin_booking_detail_screen.dart';
@@ -18,11 +19,11 @@ import 'reports_screen.dart';
 /// One day at a time: fleet timelines for an at-a-glance read on who is
 /// free, and a full trip list underneath so the admin never has to tap a
 /// bar just to find out who booked it.
-class BusCalendarScreen extends StatefulWidget {
+class BusCalendarScreen extends ConsumerStatefulWidget {
   const BusCalendarScreen({super.key});
 
   @override
-  State<BusCalendarScreen> createState() => _BusCalendarScreenState();
+  ConsumerState<BusCalendarScreen> createState() => _BusCalendarScreenState();
 }
 
 /// Visible span of the timeline. Charter windows sit inside working hours,
@@ -31,8 +32,8 @@ const _rulerStart = 6.0;
 const _rulerEnd = 23.0;
 const _trackHeight = 36.0;
 
-class _BusCalendarScreenState extends State<BusCalendarScreen> {
-  DateTime _day = DateTime(2026, 9, 14);
+class _BusCalendarScreenState extends ConsumerState<BusCalendarScreen> {
+  late DateTime _day = dateOnly(ref.read(clockProvider)());
 
   void _onNavTap(int index) {
     switch (index) {
@@ -67,32 +68,27 @@ class _BusCalendarScreenState extends State<BusCalendarScreen> {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => AdminBookingDetailScreen(booking: booking)));
   }
 
-  List<Booking> get _bookingsToday {
+  List<Booking> _bookingsToday(List<Booking> all) {
     final dayStart = dateOnly(_day);
     final dayEnd = dayStart.add(const Duration(days: 1));
-    final list = MockData.bookings.where((b) => b.start.isBefore(dayEnd) && dayStart.isBefore(b.end)).toList()
+    return all.where((b) => b.start.isBefore(dayEnd) && dayStart.isBefore(b.end)).toList()
       ..sort((a, b) => a.start.compareTo(b.start));
-    return list;
   }
 
-  bool _isFreeAllDay(BusRecord bus) {
-    final window = availabilityFor(bus, _day);
-    if (!window.available) return false;
-    if (_isBlackedOut(bus)) return false;
-    return bookingsFor(bus.regNumber, _day).isEmpty;
+  bool _isFreeAllDay(BusRecord bus, List<Booking> bookings, List<BlackoutEntry> blackouts) {
+    if (!availabilityFor(bus, _day).available) return false;
+    if (blackoutOn(bus.id, _day, blackouts) != null) return false;
+    return bookingsFor(bus.id, _day, bookings).isEmpty;
   }
-
-  bool _isBlackedOut(BusRecord bus) => MockData.blackouts.any((b) =>
-      b.busReg == bus.regNumber &&
-      !dateOnly(_day).isBefore(dateOnly(b.from)) &&
-      !dateOnly(_day).isAfter(dateOnly(b.to)));
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final buses = MockData.buses.where((b) => b.active).toList();
-    final trips = _bookingsToday;
-    final freeCount = buses.where(_isFreeAllDay).length;
+    final buses = ref.watch(busesProvider).items.where((b) => b.active).toList();
+    final allBookings = ref.watch(bookingsProvider).items;
+    final blackouts = ref.watch(blackoutsProvider).items;
+    final trips = _bookingsToday(allBookings);
+    final freeCount = buses.where((b) => _isFreeAllDay(b, allBookings, blackouts)).length;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Bus calendar')),
@@ -128,7 +124,7 @@ class _BusCalendarScreenState extends State<BusCalendarScreen> {
                 child: ListView(
                   padding: const EdgeInsets.only(bottom: AppSpacing.xl),
                   children: [
-                    for (final bus in buses) _busRow(bus),
+                    for (final bus in buses) _busRow(bus, allBookings, blackouts),
                     if (buses.isEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: AppSpacing.xxl),
@@ -159,7 +155,7 @@ class _BusCalendarScreenState extends State<BusCalendarScreen> {
 
   Widget _dayNav() {
     final textTheme = Theme.of(context).textTheme;
-    final isToday = dateOnly(_day) == dateOnly(DateTime(2026, 9, 14));
+    final isToday = dateOnly(_day) == dateOnly(ref.watch(clockProvider)());
     return Row(
       children: [
         _arrow(Icons.chevron_left_rounded, () => _shift(-1)),
@@ -248,6 +244,7 @@ class _BusCalendarScreenState extends State<BusCalendarScreen> {
   (Color, Color, Color) _barColors(BookingStage stage) {
     switch (stage) {
       case BookingStage.requested:
+      case BookingStage.costConfirmed:
         return (AppColors.accentTint, AppColors.accent, AppColors.accent);
       case BookingStage.confirmed:
       case BookingStage.inTrip:
@@ -258,18 +255,12 @@ class _BusCalendarScreenState extends State<BusCalendarScreen> {
     }
   }
 
-  Widget _busRow(BusRecord bus) {
+  Widget _busRow(BusRecord bus, List<Booking> allBookings, List<BlackoutEntry> allBlackouts) {
     final textTheme = Theme.of(context).textTheme;
     final window = availabilityFor(bus, _day);
-    final blackout = MockData.blackouts.firstWhere(
-      (b) =>
-          b.busReg == bus.regNumber &&
-          !dateOnly(_day).isBefore(dateOnly(b.from)) &&
-          !dateOnly(_day).isAfter(dateOnly(b.to)),
-      orElse: () => BlackoutEntry(busReg: '', reason: '', from: _day, to: _day),
-    );
-    final isBlackedOut = blackout.busReg.isNotEmpty;
-    final bookings = bookingsFor(bus.regNumber, _day);
+    final blackout = blackoutOn(bus.id, _day, allBlackouts);
+    final isBlackedOut = blackout != null;
+    final bookings = bookingsFor(bus.id, _day, allBookings);
 
     final String caption;
     if (isBlackedOut) {

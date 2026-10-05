@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/status_badge.dart';
-import '../../../data/mock_data.dart';
 import '../../../data/models.dart';
+import '../../../data/providers.dart';
 import '../widgets/admin_bottom_nav.dart';
 import 'booking_queue_screen.dart';
 import 'bus_calendar_screen.dart';
@@ -13,14 +14,14 @@ import 'reports_screen.dart';
 
 /// BUS-01..07: bus master list. Reachable from the dashboard and from the
 /// admin bottom nav's "Masters" tab.
-class BusListScreen extends StatefulWidget {
+class BusListScreen extends ConsumerStatefulWidget {
   const BusListScreen({super.key});
 
   @override
-  State<BusListScreen> createState() => _BusListScreenState();
+  ConsumerState<BusListScreen> createState() => _BusListScreenState();
 }
 
-class _BusListScreenState extends State<BusListScreen> {
+class _BusListScreenState extends ConsumerState<BusListScreen> {
   final _controller = TextEditingController();
   String _query = '';
 
@@ -41,17 +42,16 @@ class _BusListScreenState extends State<BusListScreen> {
     }
   }
 
-  Future<void> _openForm([BusRecord? bus]) async {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => BusFormScreen(bus: bus)));
-    if (mounted) setState(() {});
+  void _openForm([BusRecord? bus]) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => BusFormScreen(bus: bus)));
   }
 
   /// Matches the reg number first, but every other detail on the row too,
   /// so "Neeta", "Pushback", "Thane" or "35" all narrow the list.
-  List<BusRecord> get _filtered {
+  List<BusRecord> _filtered(List<BusRecord> all) {
     final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return MockData.buses;
-    return MockData.buses.where((b) {
+    if (q.isEmpty) return all;
+    return all.where((b) {
       final haystack = [
         b.regNumber,
         b.vendorName,
@@ -69,7 +69,7 @@ class _BusListScreenState extends State<BusListScreen> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final buses = _filtered;
+    final buses = _filtered(ref.watch(busesProvider).items);
     return Scaffold(
       appBar: AppBar(title: const Text('Buses')),
       floatingActionButton: FloatingActionButton.extended(

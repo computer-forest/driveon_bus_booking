@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_gradients.dart';
 import '../../../core/theme/app_radius.dart';
@@ -7,31 +8,37 @@ import '../../../core/utils/date_format.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../core/widgets/date_time_field.dart';
+import '../../../data/availability.dart';
 import '../../../data/models.dart';
+import '../../../data/providers.dart';
 import '../widgets/customer_bottom_nav.dart';
 import 'location_picker_screen.dart';
 import 'my_bookings_screen.dart';
 import 'notifications_screen.dart';
+import 'popular_packages_screen.dart';
 import 'profile_screen.dart';
 import 'results_screen.dart';
 
-class HomeSearchScreen extends StatefulWidget {
+class HomeSearchScreen extends ConsumerStatefulWidget {
   const HomeSearchScreen({super.key});
 
   @override
-  State<HomeSearchScreen> createState() => _HomeSearchScreenState();
+  ConsumerState<HomeSearchScreen> createState() => _HomeSearchScreenState();
 }
 
-class _HomeSearchScreenState extends State<HomeSearchScreen> {
+class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
   int _tripTypeIndex = 0; // 0 = single trip, 1 = round trip
   int _scopeIndex = 0; // 0 = local, 1 = outstation
   int? _capacityIndex = 1;
+  final _landmark = TextEditingController();
 
-  DateTime _pickupDate = DateTime(2026, 9, 14);
+  late DateTime _pickupDate = _today;
   TimeOfDay _pickupTime = const TimeOfDay(hour: 6, minute: 0);
-  DateTime _dropDate = DateTime(2026, 9, 14);
+  late DateTime _dropDate = _today;
   TimeOfDay _dropTime = const TimeOfDay(hour: 18, minute: 0);
-  DateTime _returnDate = DateTime(2026, 9, 15);
+  late DateTime _returnDate = _today.add(const Duration(days: 1));
+
+  DateTime get _today => dateOnly(ref.read(clockProvider)());
   TimeOfDay _returnTime = const TimeOfDay(hour: 17, minute: 0);
 
   LocationEntry _pickupLocation = const LocationEntry(city: 'Thane', area: 'Thane West');
@@ -40,6 +47,12 @@ class _HomeSearchScreenState extends State<HomeSearchScreen> {
   static const _capacities = [17, 20, 35, 40];
 
   bool get _isRoundTrip => _tripTypeIndex == 1;
+
+  @override
+  void dispose() {
+    _landmark.dispose();
+    super.dispose();
+  }
 
   void _onNavTap(int index) {
     switch (index) {
@@ -84,6 +97,37 @@ class _HomeSearchScreenState extends State<HomeSearchScreen> {
                   const SizedBox(height: AppSpacing.xl),
                   const SectionLabel('Trip type'),
                   _choiceChips(['Local', 'Outstation'], _scopeIndex, (i) => setState(() => _scopeIndex = i)),
+                  if (_scopeIndex == 1) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    AppCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.md,
+                      ),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const PopularPackagesScreen()),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.local_offer_outlined, size: 19, color: AppColors.primary),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Popular outstation packages', style: textTheme.titleSmall),
+                                Text(
+                                  'Fixed return rates from Mumbai, Navi Mumbai and Thane',
+                                  style: textTheme.labelMedium,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textTertiary),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.xl),
                   LabeledField(
                     key: ValueKey('pickup-${_pickupLocation.label}'),
@@ -94,7 +138,11 @@ class _HomeSearchScreenState extends State<HomeSearchScreen> {
                     onTap: () => _pickLocation(pickup: true),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  const LabeledField(label: 'Pickup landmark (optional)', hint: 'e.g. near Viviana Mall'),
+                  LabeledField(
+                    label: 'Pickup landmark (optional)',
+                    controller: _landmark,
+                    hint: 'e.g. near Viviana Mall',
+                  ),
                   const SizedBox(height: AppSpacing.lg),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,6 +272,7 @@ class _HomeSearchScreenState extends State<HomeSearchScreen> {
                         returnDate: _returnDate,
                         returnTime: _returnTime,
                         capacity: _capacityIndex == null ? null : _capacities[_capacityIndex!],
+                        pickupLandmark: _landmark.text.trim(),
                         summary: summary,
                       );
                       Navigator.of(context).push(

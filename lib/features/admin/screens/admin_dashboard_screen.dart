@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_gradients.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_atoms.dart';
-import '../../../data/mock_data.dart';
 import '../../../data/models.dart';
+import '../../../data/providers.dart';
 import '../widgets/admin_bottom_nav.dart';
 import 'audit_log_screen.dart';
 import 'blackout_maintenance_screen.dart';
@@ -20,18 +21,32 @@ import 'vendor_list_screen.dart';
 /// The Admin landing screen (BRD 9.1: "dashboard"), separate from the
 /// booking queue — a quick operational snapshot plus shortcuts into every
 /// Admin area, since the bottom nav only carries the four busiest ones.
-class AdminDashboardScreen extends StatelessWidget {
+class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
+    final holdCount = ref.watch(bookingsProvider).items.where((b) => b.isHold).length;
+    final metrics = ref.watch(reportMetricsProvider).items;
+    final adminName = ref.watch(authStateProvider).value?.name ?? 'there';
     return Scaffold(
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, AppSpacing.xxl),
           children: [
-            Text('Good morning, Priya', style: textTheme.displaySmall?.copyWith(fontSize: 24)),
+            Row(
+              children: [
+                Expanded(
+                  child: Text('Good morning, $adminName', style: textTheme.displaySmall?.copyWith(fontSize: 24)),
+                ),
+                IconButton(
+                  tooltip: 'Sign out',
+                  onPressed: () => ref.read(authRepositoryProvider).signOut(),
+                  icon: const Icon(Icons.logout_rounded, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
             const SizedBox(height: 4),
             Text('Operations console · Neeta Travels fleet', style: textTheme.bodyMedium),
             const SizedBox(height: AppSpacing.xl),
@@ -44,7 +59,7 @@ class AdminDashboardScreen extends StatelessWidget {
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Text(
-                      '${MockData.bookings.where((b) => b.isHold).length} bookings waiting in the queue',
+                      '$holdCount bookings waiting in the queue',
                       style: textTheme.titleSmall?.copyWith(color: Colors.white),
                     ),
                   ),
@@ -67,7 +82,7 @@ class AdminDashboardScreen extends StatelessWidget {
               crossAxisSpacing: AppSpacing.md,
               mainAxisSpacing: AppSpacing.md,
               childAspectRatio: 1.5,
-              children: MockData.reportMetrics.take(4).map((m) => _metricTile(context, m)).toList(),
+              children: metrics.take(4).map((m) => _metricTile(context, m)).toList(),
             ),
             const SizedBox(height: AppSpacing.xl),
             const SectionLabel('Manage'),

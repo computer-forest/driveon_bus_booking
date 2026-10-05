@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/widgets/app_buttons.dart';
@@ -6,10 +7,11 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../data/availability.dart';
 import '../../../data/models.dart';
+import '../../../data/providers.dart';
 import '../widgets/bus_result_card.dart';
 import 'bus_detail_screen.dart';
 
-class ResultsScreen extends StatelessWidget {
+class ResultsScreen extends ConsumerWidget {
   const ResultsScreen({super.key, required this.criteria});
 
   /// What the customer asked for. Availability is applied against this, so
@@ -17,9 +19,25 @@ class ResultsScreen extends StatelessWidget {
   final SearchCriteria criteria;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
-    final results = searchBuses(criteria);
+    final buses = ref.watch(busesProvider);
+    final bookings = ref.watch(bookingsProvider);
+    final blackouts = ref.watch(blackoutsProvider);
+
+    if (buses.isLoading || bookings.isLoading || blackouts.isLoading) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final results = searchBuses(
+      criteria,
+      buses: buses.items,
+      bookings: bookings.items,
+      blackouts: blackouts.items,
+    );
     final summary = criteria.summary;
 
     return Scaffold(
@@ -72,13 +90,14 @@ class ResultsScreen extends StatelessWidget {
                       windowLabel: AppDateFormat.timeRange(window.start, window.end),
                       onSelect: () => confirmBusSelection(
                         context,
+                        ref,
                         bus: bus,
-                        routeSummary: summary,
+                        criteria: criteria,
                       ),
                       onViewDetails: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => BusDetailScreen(bus: bus, routeSummary: summary),
+                            builder: (_) => BusDetailScreen(bus: bus, criteria: criteria),
                           ),
                         );
                       },

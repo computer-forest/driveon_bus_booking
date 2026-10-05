@@ -1,25 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/date_time_field.dart';
+import '../../../data/providers.dart';
 
 /// CAN-01..05: only Admin can cancel; requires a reason and releases the
 /// block immediately, then records any offline refund against the booking.
-class CancelRefundScreen extends StatefulWidget {
+class CancelRefundScreen extends ConsumerStatefulWidget {
   const CancelRefundScreen({super.key, required this.reference});
 
   final String reference;
 
   @override
-  State<CancelRefundScreen> createState() => _CancelRefundScreenState();
+  ConsumerState<CancelRefundScreen> createState() => _CancelRefundScreenState();
 }
 
-class _CancelRefundScreenState extends State<CancelRefundScreen> {
+class _CancelRefundScreenState extends ConsumerState<CancelRefundScreen> {
   String? _reason;
   bool _refundApplicable = false;
-  DateTime _refundDate = DateTime(2026, 9, 11);
+  late DateTime _refundDate = ref.read(clockProvider)();
   String _mode = 'UPI';
 
   static const _reasons = [

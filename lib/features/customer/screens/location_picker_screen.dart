@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_atoms.dart';
-import '../../../data/mock_data.dart';
 import '../../../data/models.dart';
+import '../../../data/providers.dart';
 
 /// SRCH-02: locations are picked from an Admin-maintained city/area list
 /// (no map services), with recent and saved locations offered first, plus
 /// a free-text landmark captured separately on the search form.
-class LocationPickerScreen extends StatefulWidget {
+class LocationPickerScreen extends ConsumerStatefulWidget {
   const LocationPickerScreen({super.key, required this.title});
 
   final String title;
 
   @override
-  State<LocationPickerScreen> createState() => _LocationPickerScreenState();
+  ConsumerState<LocationPickerScreen> createState() => _LocationPickerScreenState();
 }
 
-class _LocationPickerScreenState extends State<LocationPickerScreen> {
+class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
   final _controller = TextEditingController();
   String _query = '';
 
@@ -27,12 +28,10 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     super.dispose();
   }
 
-  List<LocationEntry> get _filtered {
-    if (_query.isEmpty) return MockData.locations;
+  List<LocationEntry> _filtered(List<LocationEntry> all) {
+    if (_query.isEmpty) return all;
     final q = _query.toLowerCase();
-    return MockData.locations
-        .where((l) => l.label.toLowerCase().contains(q))
-        .toList();
+    return all.where((l) => l.label.toLowerCase().contains(q)).toList();
   }
 
   void _select(LocationEntry location) {
@@ -42,6 +41,9 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final locations = ref.watch(locationsProvider).items;
+    final recent = ref.watch(recentLocationsProvider).items;
+    final filtered = _filtered(locations);
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
       body: SafeArea(
@@ -66,16 +68,16 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                   children: [
                     if (_query.isEmpty) ...[
                       const SectionLabel('Recent'),
-                      for (final loc in MockData.recentLocations) _row(loc, Icons.history_rounded),
+                      for (final loc in recent) _row(loc, Icons.history_rounded),
                       const SizedBox(height: AppSpacing.lg),
                       const SectionLabel('Saved'),
-                      for (final loc in MockData.locations.where((l) => l.saved))
+                      for (final loc in locations.where((l) => l.saved))
                         _row(loc, Icons.bookmark_rounded),
                       const SizedBox(height: AppSpacing.lg),
                       const SectionLabel('All cities & areas'),
                     ],
-                    for (final loc in _filtered) _row(loc, Icons.place_outlined),
-                    if (_query.isNotEmpty && _filtered.isEmpty)
+                    for (final loc in filtered) _row(loc, Icons.place_outlined),
+                    if (_query.isNotEmpty && filtered.isEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: AppSpacing.xxl),
                         child: Center(

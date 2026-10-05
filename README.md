@@ -74,3 +74,38 @@ reviewed from one build. From there:
    terms/privacy) designed in the same system.
 3. Phase 1 (Foundation) wires this UI to Riverpod, go_router and Firebase per
    the BRD's architecture section.
+
+## Sign-in configuration (MSG91 OTP + biometric unlock)
+
+Customers sign in with a real SMS OTP through the **MSG91 OTP Widget**
+(`sendotp_flutter_sdk`), then may turn on fingerprint / Face ID so later
+launches need no OTP. The widget ID and token auth are built in as defaults
+(`lib/features/auth/data/auth_config.dart`); override them at build time with:
+
+```bash
+flutter run \
+  --dart-define=MSG91_WIDGET_ID=<widget id> \
+  --dart-define=MSG91_TOKEN_AUTH=<widget token auth>
+```
+
+Optional, with defaults:
+
+| Define | Default | Meaning |
+|---|---|---|
+| `OTP_LENGTH` | `4` | Must match the OTP length on the MSG91 widget |
+| `OTP_RESEND_SECONDS` | `30` | Wait before "Resend via SMS" |
+| `OTP_VOICE_RETRY` | `false` | Show "Get a call" (enable voice in the widget first) |
+| `BIOMETRIC_RELOCK_MINUTES` | `5` | Ask for biometrics again after this long in the background |
+| `MSG91_FAKE` | `false` | Demo mode: no SMS, any code works except `0000` (wrong) and `9999` (expired) |
+
+A build without `MSG91_WIDGET_ID` / `MSG91_TOKEN_AUTH` (and without
+`MSG91_FAKE=true`) shows a configuration error screen instead of the app.
+In the MSG91 dashboard the widget needs **Mobile Integration on** and
+**Captcha off**.
+
+**The MSG91 Authkey is never in the app.** It lives only in the
+`verifyMsg91Token` Cloud Function (`functions/`), set with
+`firebase functions:secrets:set MSG91_AUTHKEY`. Until Firebase is wired the
+app uses an on-device stand-in (`LocalTokenVerifier`, behind the
+`TokenVerifier` interface) that accepts any token, so **sessions are not
+yet verified server-side**.

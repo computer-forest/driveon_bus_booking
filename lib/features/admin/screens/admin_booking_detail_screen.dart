@@ -1,48 +1,132 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
-import '../../../core/widgets/status_badge.dart';
-import '../../../data/mock_data.dart';
+import '../../../core/widgets/stage_badge.dart';
+import '../../../data/ids.dart';
 import '../../../data/models.dart';
-import '../widgets/booking_card.dart';
+import '../../../data/providers.dart';
 import 'cancel_refund_screen.dart';
 import 'reallocation_picker_screen.dart';
 
-class AdminBookingDetailScreen extends StatefulWidget {
+class AdminBookingDetailScreen extends ConsumerStatefulWidget {
   const AdminBookingDetailScreen({super.key, required this.booking});
 
+  /// The booking as it was when the screen opened; the live copy from the
+  /// backend replaces it as soon as one is available.
   final Booking booking;
 
   @override
-  State<AdminBookingDetailScreen> createState() => _AdminBookingDetailScreenState();
+  ConsumerState<AdminBookingDetailScreen> createState() => _AdminBookingDetailScreenState();
 }
 
-class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
-  late BookingStage _stage = widget.booking.stage;
-  late String _busReg = widget.booking.busReg;
-  late int _amountPaid = widget.booking.amountPaid;
+class _AdminBookingDetailScreenState extends ConsumerState<AdminBookingDetailScreen> {
+  late final _totalFare = TextEditingController(
+    text: widget.booking.totalFare == 0 ? '' : '${widget.booking.totalFare}',
+  );
+  late final _advanceDue = TextEditingController(text: _advanceText(widget.booking.totalFare));
+  late final _paymentAmount = TextEditingController(text: _advanceText(widget.booking.totalFare));
+  final _paymentMode = TextEditingController(text: 'UPI');
+  final _paymentReference = TextEditingController();
+  final _balanceReceived = TextEditingController();
+
+  String _advanceText(int totalFare) {
+    final advance = ref.read(appConfigProvider).config.advanceFor(totalFare);
+    return advance == 0 ? '' : '$advance';
+  }
+
+  @override
+  void dispose() {
+    _totalFare.dispose();
+    _advanceDue.dispose();
+    _paymentAmount.dispose();
+    _paymentMode.dispose();
+    _paymentReference.dispose();
+    _balanceReceived.dispose();
+    super.dispose();
+  }
+
+  static int _rupees(String text) => int.tryParse(text.replaceAll(RegExp(r'\D'), '')) ?? 0;
+
+  Booking get _current {
+    final live = ref.read(bookingsProvider).items.where((b) => b.id == widget.booking.id);
+    return live.isEmpty ? widget.booking : live.first;
+  }
+
+  Future<void> _save(Booking next) => ref.read(bookingRepositoryProvider).upsert(next);
+
+  /// Writes the fare and moves a fresh request to "cost confirmed".
+  Future<void> _confirmCost() async {
+    final b = _current;
+    final fare = _rupees(_totalFare.text);
+    await _save(b.copyWith(
+      totalFare: fare,
+      stage: b.stage == BookingStage.requested ? BookingStage.costConfirmed : b.stage,
+    ));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cost saved.')));
+  }
+
+  /// Records the advance the customer paid outside the app and confirms.
+  Future<void> _recordAdvanceAndConfirm() async {
+    final b = _current;
+    final amount = _rupees(_paymentAmount.text);
+    final admin = ref.read(authStateProvider).value;
+    if (amount > 0) {
+      await ref.read(paymentRepositoryProvider).record(
+            Payment(
+              id: newId('pay'),
+              bookingId: b.id,
+              kind: PaymentKind.advance,
+              amount: amount,
+              mode: _paymentMode.text.trim().isEmpty ? 'UPI' : _paymentMode.text.trim(),
+              reference: _paymentReference.text.trim(),
+              receivedOn: ref.read(clockProvider)(),
+              recordedBy: 'Admin · ${admin?.name ?? 'Staff'}',
+            ),
+          );
+    }
+    await _save(b.copyWith(amountPaid: b.amountPaid + amount, stage: BookingStage.confirmed));
+  }
+
+  Future<void> _settle() async {
+    final b = _current;
+    final received = _rupees(_balanceReceived.text);
+    final admin = ref.read(authStateProvider).value;
+    if (received > 0) {
+      await ref.read(paymentRepositoryProvider).record(
+            Payment(
+              id: newId('pay'),
+              bookingId: b.id,
+              kind: PaymentKind.balance,
+              amount: received,
+              mode: 'Cash',
+              reference: '',
+              receivedOn: ref.read(clockProvider)(),
+              recordedBy: 'Admin · ${admin?.name ?? 'Staff'}',
+            ),
+          );
+    }
+    await _save(b.copyWith(amountPaid: b.amountPaid + received, stage: BookingStage.settled));
+  }
 
   Future<void> _reallocate() async {
-    final result = await Navigator.of(context).push<bool>(
+    final b = _current;
+    final newBus = await Navigator.of(context).push<BusRecord>(
       MaterialPageRoute(
-        builder: (_) => ReallocationPickerScreen(
-          currentBusReg: _busReg,
-          start: widget.booking.start,
-          end: widget.booking.end,
-        ),
+        builder: (_) => ReallocationPickerScreen(currentBusId: b.busId, start: b.start, end: b.end),
       ),
     );
-    if (result == true && mounted) {
-      final index = MockData.buses.indexWhere((b) => b.regNumber != _busReg && b.active);
-      setState(() => _busReg = index >= 0 ? MockData.buses[index].regNumber : _busReg);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bus reallocated — customer notified with new bus and driver.')),
-      );
-    }
+    if (newBus == null || !mounted) return;
+    await _save(b.copyWith(busId: newBus.id, busReg: newBus.regNumber));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Moved to ${newBus.regNumber}.')),
+    );
   }
 
   Future<void> _cancel() async {
@@ -57,8 +141,11 @@ class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final booking = widget.booking;
-    final advanceDue = (booking.totalFare * 0.25).round();
+    ref.watch(bookingsProvider);
+    final booking = _current;
+    final stage = booking.stage;
+    final now = ref.watch(clockProvider)();
+    final secondsLeft = booking.holdSecondsLeft(now);
     return Scaffold(
       appBar: AppBar(title: Text(booking.reference)),
       body: SafeArea(
@@ -77,8 +164,8 @@ class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
                     const Icon(Icons.hourglass_bottom_rounded, size: 16, color: AppColors.urgent),
                     const SizedBox(width: AppSpacing.sm),
                     Text(
-                      'Held for ${(booking.holdSecondsLeft ~/ 60).toString().padLeft(2, '0')}:'
-                      '${(booking.holdSecondsLeft % 60).toString().padLeft(2, '0')} more',
+                      'Held for ${(secondsLeft ~/ 60).toString().padLeft(2, '0')}:'
+                      '${(secondsLeft % 60).toString().padLeft(2, '0')} more',
                       style: textTheme.bodyMedium?.copyWith(color: AppColors.urgent, fontWeight: FontWeight.w600),
                     ),
                   ],
@@ -103,9 +190,13 @@ class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
                   Text(
                     '${AppDateFormat.dayMonthYear(booking.start)}, '
                     '${AppDateFormat.timeRange(TimeOfDay.fromDateTime(booking.start), TimeOfDay.fromDateTime(booking.end))} · '
-                    '${booking.capacity} seater · $_busReg',
+                    '${booking.capacity} seater · ${booking.busReg}',
                     style: textTheme.bodyMedium,
                   ),
+                  if (booking.pickupLandmark != null) ...[
+                    const SizedBox(height: 2),
+                    Text('Pickup: ${booking.pickupLandmark}', style: textTheme.bodyMedium),
+                  ],
                 ],
               ),
             ),
@@ -114,17 +205,24 @@ class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
             const SectionLabel('Confirm cost'),
             LabeledField(
               label: 'Total fare (₹)',
-              initialValue: booking.totalFare == 0 ? '' : '${booking.totalFare}',
+              controller: _totalFare,
               keyboardType: TextInputType.number,
+              onChanged: (v) {
+                _advanceDue.text = _advanceText(_rupees(v));
+                setState(() {});
+              },
             ),
             const SizedBox(height: AppSpacing.lg),
             LabeledField(
-              label: 'Advance due (₹) — 25% default',
-              initialValue: advanceDue == 0 ? '' : '$advanceDue',
+              label: 'Advance due (₹) — ${ref.watch(appConfigProvider).config.defaultAdvancePercent}% default',
+              controller: _advanceDue,
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: AppSpacing.lg),
-            SecondaryButton(label: 'Save & notify customer', onPressed: () {}),
+            SecondaryButton(
+              label: 'Save & notify customer',
+              onPressed: _rupees(_totalFare.text) > 0 ? _confirmCost : null,
+            ),
             const SizedBox(height: AppSpacing.xxl),
 
             const SectionLabel('Record payment'),
@@ -133,26 +231,26 @@ class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
                 Expanded(
                   child: LabeledField(
                     label: 'Amount (₹)',
-                    initialValue: '$_amountPaid',
+                    controller: _paymentAmount,
                     keyboardType: TextInputType.number,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
-                const Expanded(child: LabeledField(label: 'Mode', initialValue: 'UPI')),
+                Expanded(child: LabeledField(label: 'Mode', controller: _paymentMode)),
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
-            const LabeledField(label: 'Reference', initialValue: 'UPI/20260908...'),
+            LabeledField(label: 'Reference', controller: _paymentReference, hint: 'UPI / receipt number'),
             const SizedBox(height: AppSpacing.lg),
             PrimaryButton(
               label: 'Confirm booking',
-              onPressed: _stage == BookingStage.requested
-                  ? () => setState(() => _stage = BookingStage.confirmed)
+              onPressed: stage == BookingStage.requested || stage == BookingStage.costConfirmed
+                  ? _recordAdvanceAndConfirm
                   : null,
             ),
             const SizedBox(height: AppSpacing.xxl),
 
-            SectionLabel('Trip', trailing: _stageBadge()),
+            SectionLabel('Trip', trailing: StageBadge(stage)),
             AppCard(
               child: Row(
                 children: [
@@ -161,7 +259,7 @@ class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
                       label: 'Start trip',
                       icon: Icons.play_arrow_rounded,
                       onPressed:
-                          _stage == BookingStage.confirmed ? () => setState(() => _stage = BookingStage.inTrip) : null,
+                          stage == BookingStage.confirmed ? () => _save(booking.copyWith(stage: BookingStage.inTrip)) : null,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
@@ -169,28 +267,26 @@ class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
                     child: SecondaryButton(
                       label: 'Complete trip',
                       icon: Icons.flag_rounded,
-                      onPressed:
-                          _stage == BookingStage.inTrip ? () => setState(() => _stage = BookingStage.completed) : null,
+                      onPressed: stage == BookingStage.inTrip
+                          ? () {
+                              _balanceReceived.text = '${booking.balanceDue}';
+                              _save(booking.copyWith(stage: BookingStage.completed));
+                            }
+                          : null,
                     ),
                   ),
                 ],
               ),
             ),
-            if (_stage == BookingStage.completed) ...[
+            if (stage == BookingStage.completed) ...[
               const SizedBox(height: AppSpacing.lg),
               LabeledField(
                 label: 'Balance received (₹)',
-                initialValue: '${booking.totalFare - _amountPaid}',
+                controller: _balanceReceived,
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: AppSpacing.lg),
-              PrimaryButton(
-                label: 'Record balance & settle',
-                onPressed: () => setState(() {
-                  _amountPaid = booking.totalFare;
-                  _stage = BookingStage.settled;
-                }),
-              ),
+              PrimaryButton(label: 'Record balance & settle', onPressed: _settle),
             ],
             const SizedBox(height: AppSpacing.xxl),
 
@@ -212,10 +308,5 @@ class _AdminBookingDetailScreenState extends State<AdminBookingDetailScreen> {
         ),
       ),
     );
-  }
-
-  Widget _stageBadge() {
-    final (label, tone) = stageDisplay(_stage);
-    return StatusBadge(label: label, tone: tone);
   }
 }

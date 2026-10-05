@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
@@ -103,6 +104,11 @@ class LabeledField extends StatelessWidget {
     this.suffixIcon,
     this.initialValue,
     this.onChanged,
+    this.obscureText = false,
+    this.errorText,
+    this.inputFormatters,
+    this.prefixText,
+    this.enabled = true,
   });
 
   final String label;
@@ -114,6 +120,11 @@ class LabeledField extends StatelessWidget {
   final IconData? suffixIcon;
   final String? initialValue;
   final ValueChanged<String>? onChanged;
+  final bool obscureText;
+  final String? errorText;
+  final List<TextInputFormatter>? inputFormatters;
+  final String? prefixText;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -129,9 +140,14 @@ class LabeledField extends StatelessWidget {
           readOnly: readOnly,
           onTap: onTap,
           onChanged: onChanged,
+          obscureText: obscureText,
+          inputFormatters: inputFormatters,
+          enabled: enabled,
           style: Theme.of(context).textTheme.bodyLarge,
           decoration: InputDecoration(
             hintText: hint,
+            errorText: errorText,
+            prefixText: prefixText,
             suffixIcon: suffixIcon != null
                 ? Icon(suffixIcon, size: 19, color: AppColors.textTertiary)
                 : null,

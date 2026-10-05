@@ -1,24 +1,32 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
+import '../../../core/utils/date_format.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../../data/models.dart';
+import '../../../data/providers.dart';
 import 'booking_detail_screen.dart';
 
-class HoldScreen extends StatefulWidget {
-  const HoldScreen({super.key});
+/// The countdown here is display only. The hold's real expiry is
+/// `booking.holdExpiresAt`, enforced by the backend.
+class HoldScreen extends ConsumerStatefulWidget {
+  const HoldScreen({super.key, required this.booking});
+
+  final Booking booking;
 
   @override
-  State<HoldScreen> createState() => _HoldScreenState();
+  ConsumerState<HoldScreen> createState() => _HoldScreenState();
 }
 
-class _HoldScreenState extends State<HoldScreen> with SingleTickerProviderStateMixin {
-  static const _totalSeconds = 30 * 60;
-  int _secondsLeft = 29 * 60 + 47;
+class _HoldScreenState extends ConsumerState<HoldScreen> with SingleTickerProviderStateMixin {
+  late final int _totalSeconds = ref.read(appConfigProvider).config.holdMinutes * 60;
+  late int _secondsLeft = widget.booking.holdSecondsLeft(ref.read(clockProvider)());
   Timer? _timer;
   late final AnimationController _pulse;
 
@@ -51,7 +59,8 @@ class _HoldScreenState extends State<HoldScreen> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final progress = _secondsLeft / _totalSeconds;
+    final progress = _totalSeconds == 0 ? 0.0 : _secondsLeft / _totalSeconds;
+    final booking = widget.booking;
     return Scaffold(
       appBar: AppBar(title: const Text('Bus held for you')),
       body: SafeArea(
@@ -121,14 +130,20 @@ class _HoldScreenState extends State<HoldScreen> with SingleTickerProviderStateM
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('20 seater', style: textTheme.titleMedium),
-                        const SizedBox(height: 4),
-                        Text('AC · Pushback · Thane → Mahabaleshwar', style: textTheme.bodyMedium),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${booking.capacity} seater', style: textTheme.titleMedium),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${booking.route} · ${AppDateFormat.dayMonth(booking.start)}',
+                            style: textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: AppSpacing.md),
                     const StatusBadge(label: 'Held', tone: StatusTone.warning),
                   ],
                 ),
@@ -154,7 +169,7 @@ class _HoldScreenState extends State<HoldScreen> with SingleTickerProviderStateM
                 label: 'View booking status',
                 onPressed: () {
                   Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const BookingDetailScreen()),
+                    MaterialPageRoute(builder: (_) => BookingDetailScreen(booking: booking)),
                   );
                 },
               ),

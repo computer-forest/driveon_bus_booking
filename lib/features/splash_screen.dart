@@ -1,30 +1,35 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../app/routes.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_gradients.dart';
-import 'role_select_screen.dart';
+import '../data/providers.dart';
 
-/// First screen shown on launch. In the real app this is where the
-/// session is checked (signed in vs not) before routing; here it just
-/// primes the prototype and hands off to the shell switcher.
-class SplashScreen extends StatefulWidget {
+/// First screen shown on launch. It waits for the saved session to be
+/// checked (and a moment of branding), then the router sends the user to
+/// the welcome flow or straight to their own shell.
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(milliseconds: 900), () {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const RoleSelectScreen()),
-      );
-    });
+    _proceed();
+  }
+
+  Future<void> _proceed() async {
+    await Future.wait([
+      Future<void>.delayed(const Duration(milliseconds: 900)),
+      ref.read(authRepositoryProvider).authState().first,
+    ]);
+    if (!mounted) return;
+    context.go(Routes.welcome);
   }
 
   @override

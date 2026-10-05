@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../role_select_screen.dart';
+import '../../../data/providers.dart';
 
 /// AUTH-09: customer-initiated account deletion. Personal data is erased
 /// and past bookings anonymised; financial records are retained.
-class DeleteAccountScreen extends StatefulWidget {
+class DeleteAccountScreen extends ConsumerStatefulWidget {
   const DeleteAccountScreen({super.key});
 
   @override
-  State<DeleteAccountScreen> createState() => _DeleteAccountScreenState();
+  ConsumerState<DeleteAccountScreen> createState() => _DeleteAccountScreenState();
 }
 
-class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
+class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
   bool _understood = false;
 
   @override
@@ -69,12 +70,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: _understood
-                      ? () => Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (_) => const RoleSelectScreen()),
-                            (route) => false,
-                          )
-                      : null,
+                  onPressed: _understood ? () => ref.read(authRepositoryProvider).deleteAccount() : null,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.urgent,
                     side: const BorderSide(color: AppColors.urgent),
