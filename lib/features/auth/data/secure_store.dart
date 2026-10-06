@@ -13,6 +13,7 @@ class StoreKeys {
   // Used only by the on-device stand-in for the server (see MockAuthRepository).
   static const sessionPhone = 'fake_session_phone';
   static const sessionOnboarded = 'fake_session_onboarded';
+  static const sessionRole = 'fake_session_role';
   static String profile(String uid) => 'fake_profile_$uid';
 
   /// Cleared on logout: the saved choice and number on this device.

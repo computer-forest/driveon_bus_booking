@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../features/auth/data/auth_messages.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/data/phone.dart';
 import '../../features/auth/data/secure_store.dart';
@@ -286,6 +287,10 @@ class MockAuthRepository implements AuthRepository {
   final TokenVerifier _verifier;
   Future<void>? _restored;
 
+  /// Demo staff allow-list for the on-device stand-in; the real one is the
+  /// `staff` collection in Firestore.
+  static const staffPhones = {'9820000001'};
+
   /// Stands in for Firebase keeping the session on the device: a customer
   /// who signed in earlier is restored without another OTP.
   Future<void> _restore() => _restored ??= _doRestore();
@@ -294,13 +299,14 @@ class MockAuthRepository implements AuthRepository {
     if (_b.user.value != null) return;
     final phone = await _store.read(StoreKeys.sessionPhone);
     if (phone == null) return;
-    final uid = 'cust_91$phone';
+    final isStaff = await _store.read(StoreKeys.sessionRole) == 'admin';
+    final uid = '${isStaff ? 'staff' : 'cust'}_91$phone';
     final profile = await _readProfile(uid);
     _b.user.value = AppUser(
       id: uid,
-      role: UserRole.customer,
+      role: isStaff ? UserRole.admin : UserRole.customer,
       phone: Phone.pretty(phone),
-      name: profile?.$1,
+      name: isStaff ? 'Staff' : profile?.$1,
       email: profile?.$2,
       onboarded: await _store.read(StoreKeys.sessionOnboarded) == 'true',
     );
@@ -335,38 +341,25 @@ class MockAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<AppUser> signInWithOtpToken({required String phone, required String accessToken}) async {
+  Future<AppUser> signInWithOtpToken({required String phone, required String accessToken, bool staff = false}) async {
     final identity = await _verifier.verify(phone: phone, accessToken: accessToken);
-    final profile = await _readProfile(identity.uid);
+    if (staff && !staffPhones.contains(identity.phone)) throw const AuthException(AuthMessages.notStaff);
+    final uid = staff ? 'staff_91${identity.phone}' : identity.uid;
+    final profile = staff ? null : await _readProfile(uid);
     final user = AppUser(
-      id: identity.uid,
-      role: UserRole.customer,
+      id: uid,
+      role: staff ? UserRole.admin : UserRole.customer,
       phone: Phone.pretty(identity.phone),
-      name: profile?.$1,
+      name: staff ? 'Staff' : profile?.$1,
       email: profile?.$2,
       // Still to do on this device: confirm the profile, choose biometrics.
       onboarded: false,
       createdAt: MockData.now,
     );
     await _store.write(StoreKeys.sessionPhone, identity.phone);
+    await _store.write(StoreKeys.sessionRole, staff ? 'admin' : 'customer');
     await _store.write(StoreKeys.lastPhone, identity.phone);
     await _store.write(StoreKeys.sessionOnboarded, 'false');
-    _b.user.value = user;
-    return user;
-  }
-
-  @override
-  Future<AppUser> signInAdmin(String email, String password) async {
-    if (!email.contains('@') || password.isEmpty) {
-      throw const AuthException('Enter your work email and password.');
-    }
-    final user = AppUser(
-      id: 'adm-priya',
-      role: UserRole.admin,
-      name: 'Priya',
-      email: email,
-      onboarded: true,
-    );
     _b.user.value = user;
     return user;
   }
@@ -392,6 +385,7 @@ class MockAuthRepository implements AuthRepository {
   Future<void> _forgetDevice() async {
     for (final key in [
       StoreKeys.sessionPhone,
+      StoreKeys.sessionRole,
       StoreKeys.sessionOnboarded,
       StoreKeys.lastPhone,
       StoreKeys.biometricEnabled,

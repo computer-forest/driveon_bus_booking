@@ -44,7 +44,7 @@ class _AuthGateState extends ConsumerState<AuthGate> with WidgetsBindingObserver
     final user = await ref.read(authRepositoryProvider).authState().first;
     final enabled = await ref.read(secureStoreProvider).read(StoreKeys.biometricEnabled) == 'true';
     if (!mounted || _locked) return;
-    if (user != null && !user.isAdmin && user.onboarded && enabled) setState(() => _locked = true);
+    if (user != null && user.onboarded && enabled) setState(() => _locked = true);
   }
 
   @override

@@ -7,10 +7,19 @@ const { initializeApp, deleteApp } = require("firebase/app");
 const { getAuth, connectAuthEmulator, signInWithCustomToken, signOut } = require("firebase/auth");
 const { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc, updateDoc, serverTimestamp } = require("firebase/firestore");
 const { getFunctions, connectFunctionsEmulator, httpsCallable } = require("firebase/functions");
+const { initializeTestEnvironment } = require("@firebase/rules-unit-testing");
 
-let app, auth, db, fns;
+let app, auth, db, fns, env;
 
-before(() => {
+before(async () => {
+  // The staff allow-list is closed to clients, so seed it past the rules,
+  // the way the console or an admin tool would.
+  env = await initializeTestEnvironment({ projectId: "driveon-charter", firestore: { host: "127.0.0.1", port: 8085 } });
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "staff/919820000001"), { name: "Priya", active: true });
+    await setDoc(doc(ctx.firestore(), "staff/919820000002"), { name: "Former staff", active: false });
+  });
+
   app = initializeApp({ projectId: "driveon-charter", apiKey: "fake" });
   auth = getAuth(app);
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
@@ -20,7 +29,10 @@ before(() => {
   connectFunctionsEmulator(fns, "127.0.0.1", 5001);
 });
 
-after(async () => deleteApp(app));
+after(async () => {
+  await env.cleanup();
+  await deleteApp(app);
+});
 
 const call = (name, data) => httpsCallable(fns, name)(data).then((r) => r.data);
 
@@ -61,4 +73,40 @@ test("deleting the account erases the profile and the sign-in", async () => {
     assert.equal(snap.exists(), false);
     throw new Error("profile-gone");
   }), /profile-gone/);
+});
+
+const staffToken = (phone) =>
+  call("verifyMsg91Token", { accessToken: "fake-access-token-s", phone, audience: "staff" });
+
+test("a number on the staff list signs in as an admin, in its own account", async () => {
+  await signOut(auth);
+  const { customToken } = await staffToken("9820000001");
+  const cred = await signInWithCustomToken(auth, customToken);
+  assert.equal(cred.user.uid, "staff_919820000001");
+  assert.equal(cred.user.displayName, "Priya");
+  assert.equal((await cred.user.getIdTokenResult()).claims.role, "admin");
+});
+
+test("the same number as a customer is only a customer", async () => {
+  await signOut(auth);
+  const { customToken } = await call("verifyMsg91Token", { accessToken: "fake-access-token-c", phone: "9820000001" });
+  const cred = await signInWithCustomToken(auth, customToken);
+  assert.equal(cred.user.uid, "cust_919820000001");
+  assert.equal((await cred.user.getIdTokenResult()).claims.role, "customer");
+});
+
+test("a verified number that is not on the staff list is refused", async () => {
+  await assert.rejects(staffToken("9820011223"), (e) => e.code === "functions/permission-denied");
+});
+
+test("a deactivated staff member is refused", async () => {
+  await assert.rejects(staffToken("9820000002"), (e) => e.code === "functions/permission-denied");
+});
+
+test("a signed-in customer or staff member cannot read the staff list", async () => {
+  await assert.rejects(getDoc(doc(db, "staff/919820000001")));
+  await signOut(auth);
+  const { customToken } = await staffToken("9820000001");
+  await signInWithCustomToken(auth, customToken);
+  await assert.rejects(getDoc(doc(db, "staff/919820000001")));
 });

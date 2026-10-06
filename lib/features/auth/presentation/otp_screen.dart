@@ -18,11 +18,14 @@ import 'enable_biometric_screen.dart';
 /// Second step of sign-in. One hidden field holds the code and the boxes
 /// just display it, so typing, backspace, paste and SMS autofill all behave.
 class OtpScreen extends ConsumerStatefulWidget {
-  const OtpScreen({super.key, required this.phone, required this.reqId});
+  const OtpScreen({super.key, required this.phone, required this.reqId, this.staff = false});
 
   /// Ten digits, no country code.
   final String phone;
   final String reqId;
+
+  /// Signing in as staff: the number must be on the staff allow-list.
+  final bool staff;
 
   @override
   ConsumerState<OtpScreen> createState() => _OtpScreenState();
@@ -86,11 +89,14 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     });
     try {
       final token = await ref.read(otpServiceProvider).verify(reqId: _reqId, otp: _field.text);
-      final user = await ref.read(authRepositoryProvider).signInWithOtpToken(phone: widget.phone, accessToken: token);
+      final user = await ref
+          .read(authRepositoryProvider)
+          .signInWithOtpToken(phone: widget.phone, accessToken: token, staff: widget.staff);
       if (!mounted) return;
-      final hasProfile = (user.name ?? '').isNotEmpty;
+      // Staff have no customer profile to fill in.
+      final needsProfile = !user.isAdmin && (user.name ?? '').isEmpty;
       await navigator.pushReplacement(MaterialPageRoute(
-        builder: (_) => hasProfile ? const EnableBiometricScreen() : const ProfileSetupScreen(),
+        builder: (_) => needsProfile ? const ProfileSetupScreen() : const EnableBiometricScreen(),
       ));
     } on OtpException catch (e) {
       if (!mounted) return;
@@ -100,10 +106,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         if (e.kind == OtpFailure.tooManyAttempts) _blocked = true;
         if (e.kind == OtpFailure.expired || e.kind == OtpFailure.tooManyAttempts) _allowResendNow();
       });
-    } on AuthException {
-      // MSG91 accepted the code but the server would not vouch for the number.
-      messenger.showSnackBar(const SnackBar(content: Text(AuthMessages.serverVerification)));
-      navigator.popUntil((r) => r.isFirst);
+    } on AuthException catch (e) {
+      // MSG91 accepted the code but the server would not let this number in
+      // (not verified, or not on the staff list): back to the number screen.
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      navigator.pop();
     } catch (_) {
       // The code was accepted but this phone could not save the sign-in
       // (e.g. secure storage unavailable). A used code cannot be reused.

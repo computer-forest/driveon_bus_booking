@@ -6,8 +6,8 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
  *
  *   in: { uid: string, role: "admin" | "customer" }
  *
- * The first admin cannot come from here (there is nobody to call it); use
- * `npm run create-admin`.
+ * Staff normally get the admin role at sign-in, from the `staff` allow-list
+ * (see verifyMsg91Token); this is for exceptions.
  */
 export const setUserRole = onCall(async (request) => {
   if (request.auth?.token.role !== "admin") {

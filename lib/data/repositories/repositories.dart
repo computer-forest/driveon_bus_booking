@@ -120,11 +120,12 @@ abstract class AuthRepository {
   /// The signed-in user, or null when signed out.
   Stream<AppUser?> authState();
 
-  /// Completes customer sign-in once MSG91 has verified the number. The
-  /// access token is checked server-side before any session is created.
-  /// [phone] is the ten digits the customer typed.
-  Future<AppUser> signInWithOtpToken({required String phone, required String accessToken});
-  Future<AppUser> signInAdmin(String email, String password);
+  /// Completes sign-in once MSG91 has verified the number. The access token
+  /// is checked server-side before any session is created. [phone] is the
+  /// ten digits typed. With [staff] the number must also be on the staff
+  /// allow-list, otherwise this throws an [AuthException] even though the
+  /// OTP was right; staff get the admin role, everyone else is a customer.
+  Future<AppUser> signInWithOtpToken({required String phone, required String accessToken, bool staff = false});
   Future<void> updateProfile({required String name, required String email});
   Future<void> completeOnboarding();
   Future<void> signOut();

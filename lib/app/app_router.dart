@@ -20,8 +20,8 @@ import 'routes.dart';
 /// in their own shell.
 String destinationFor(AppUser? user) {
   if (user == null) return Routes.welcome;
-  if (user.isAdmin) return Routes.admin;
-  return user.onboarded ? Routes.home : Routes.welcome;
+  if (!user.onboarded) return Routes.welcome;
+  return user.isAdmin ? Routes.admin : Routes.home;
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -70,7 +70,8 @@ class _WelcomeFlow extends ConsumerWidget {
     final user = ref.read(authStateProvider).value;
     final Widget home;
     if (user != null) {
-      home = (user.name ?? '').isEmpty ? const ProfileSetupScreen() : const EnableBiometricScreen();
+      // Staff skip the customer profile and go straight to the biometric offer.
+      home = !user.isAdmin && (user.name ?? '').isEmpty ? const ProfileSetupScreen() : const EnableBiometricScreen();
     } else if (ref.read(authNoticeProvider) != null) {
       home = const MobileNumberScreen();
     } else {

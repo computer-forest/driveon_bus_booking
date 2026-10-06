@@ -8,15 +8,19 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../data/providers.dart';
-import '../../admin/screens/admin_login_screen.dart';
 import '../data/msg91_otp_service.dart';
 import '../data/phone.dart';
 import 'otp_screen.dart';
 
 /// First step of customer sign-in: a ten-digit mobile number. The country
 /// code is added in code, never typed.
+///
+/// With [staff] the same OTP flow signs in a staff member; the server then
+/// checks the number against the staff allow-list.
 class MobileNumberScreen extends ConsumerStatefulWidget {
-  const MobileNumberScreen({super.key});
+  const MobileNumberScreen({super.key, this.staff = false});
+
+  final bool staff;
 
   @override
   ConsumerState<MobileNumberScreen> createState() => _MobileNumberScreenState();
@@ -60,7 +64,9 @@ class _MobileNumberScreenState extends ConsumerState<MobileNumberScreen> {
           .send(Phone.identifier(_controller.text, countryCode: config.countryCode));
       if (!mounted) return;
       await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => OtpScreen(phone: Phone.digits(_controller.text), reqId: reqId)),
+        MaterialPageRoute(
+          builder: (_) => OtpScreen(phone: Phone.digits(_controller.text), reqId: reqId, staff: widget.staff),
+        ),
       );
     } on OtpException catch (e) {
       messenger.showSnackBar(SnackBar(
@@ -76,7 +82,9 @@ class _MobileNumberScreenState extends ConsumerState<MobileNumberScreen> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final config = ref.watch(authConfigProvider);
+    final staff = widget.staff;
     return Scaffold(
+      appBar: staff ? AppBar(title: const Text('Staff sign in')) : null,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.huge, AppSpacing.xl, AppSpacing.xl),
@@ -97,10 +105,12 @@ class _MobileNumberScreenState extends ConsumerState<MobileNumberScreen> {
                 child: const Icon(Icons.directions_bus_filled_rounded, color: Colors.white, size: 28),
               ),
               const SizedBox(height: AppSpacing.xl),
-              Text('Book the whole bus', style: textTheme.displaySmall),
+              Text(staff ? 'Staff sign in' : 'Book the whole bus', style: textTheme.displaySmall),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'No seats to pick — one vehicle, confirmed by our team.',
+                staff
+                    ? 'Enter the mobile number registered for staff access. We will text you a code.'
+                    : 'No seats to pick — one vehicle, confirmed by our team.',
                 style: textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: AppSpacing.xxxl),
@@ -135,15 +145,17 @@ class _MobileNumberScreenState extends ConsumerState<MobileNumberScreen> {
                   style: textTheme.labelMedium,
                 ),
               ),
-              const SizedBox(height: AppSpacing.xxxl),
-              Center(
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const AdminLoginScreen()),
+              if (!staff) ...[
+                const SizedBox(height: AppSpacing.xxxl),
+                Center(
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const MobileNumberScreen(staff: true)),
+                    ),
+                    child: const Text('Staff sign in'),
                   ),
-                  child: const Text('Staff sign in'),
                 ),
-              ),
+              ],
             ],
           ),
         ),

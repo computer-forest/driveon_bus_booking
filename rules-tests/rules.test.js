@@ -92,5 +92,7 @@ test("every other collection is closed to customers and admins alike", async () 
     await assertFails(getDocs(collection(db, "buses")));
     await assertFails(setDoc(doc(db, "buses/bus-1"), { regNumber: "MH 12" }));
     await assertFails(getDocs(collection(db, "bookings")));
+    await assertFails(getDocs(collection(db, "staff")));
+    await assertFails(setDoc(doc(db, "staff/919820000009"), { name: "Me", active: true }));
   }
 });

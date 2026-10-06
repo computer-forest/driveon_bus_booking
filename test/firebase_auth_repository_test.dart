@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,13 +10,17 @@ import 'package:charter_booking_ui/features/auth/data/secure_store.dart';
 
 class FakeFunctions implements BackendFunctions {
   bool reject = false;
+  bool notOnStaffList = false;
   bool deleted = false;
   final List<String> exchanged = [];
 
   @override
-  Future<String> exchangeMsg91Token({required String accessToken, required String phone}) async {
+  Future<String> exchangeMsg91Token({required String accessToken, required String phone, required bool staff}) async {
     if (reject) throw const AuthException("We couldn't verify your number. Please try again.");
-    exchanged.add('$accessToken|$phone');
+    if (staff && notOnStaffList) {
+      throw FirebaseFunctionsException(message: 'denied', code: 'permission-denied');
+    }
+    exchanged.add('$accessToken|$phone|${staff ? 'staff' : 'customer'}');
     return 'custom-token';
   }
 
@@ -42,7 +47,7 @@ void main() {
       final auth = MockFirebaseAuth(mockUser: MockUser(uid: 'cust_919820011223'));
       final user = await repo(auth).signInWithOtpToken(phone: '98200 11223', accessToken: 'tok');
 
-      expect(functions.exchanged, ['tok|9820011223']);
+      expect(functions.exchanged, ['tok|9820011223|customer']);
       expect(user.id, 'cust_919820011223');
       expect(user.isAdmin, isFalse);
       expect(user.phone, '98200 11223');
@@ -134,32 +139,41 @@ void main() {
   });
 
   group('staff sign-in', () {
-    test('an account with the admin claim gets the admin shell', () async {
-      final auth = MockFirebaseAuth(
-        mockUser: MockUser(
-          uid: 'adm-1',
-          email: 'priya@example.com',
-          displayName: 'Priya',
-          customClaim: {'role': 'admin'},
-        ),
-      );
-      final user = await repo(auth).signInAdmin('priya@example.com', 'secret');
+    MockFirebaseAuth staffAuth() => MockFirebaseAuth(
+          mockUser: MockUser(uid: 'staff_919820000001', displayName: 'Priya', customClaim: {'role': 'admin'}),
+        );
+
+    test('a number on the staff list gets the admin role, with no customer profile', () async {
+      final auth = staffAuth();
+      final user = await repo(auth).signInWithOtpToken(phone: '9820000001', accessToken: 'tok', staff: true);
+
+      expect(functions.exchanged, ['tok|9820000001|staff']);
       expect(user.isAdmin, isTrue);
       expect(user.name, 'Priya');
-      expect(user.onboarded, isTrue);
+      expect(user.phone, '98200 00001');
+      expect(user.onboarded, isFalse); // still to choose biometrics on this phone
+      expect((await firestore.doc('users/staff_919820000001').get()).exists, isFalse);
     });
 
-    test('an account without the admin claim is refused and signed out', () async {
-      final auth = MockFirebaseAuth(mockUser: MockUser(uid: 'u-1', email: 'x@example.com'));
+    test('a verified number that is not on the list is refused with a clear message', () async {
+      functions.notOnStaffList = true;
+      final auth = staffAuth();
       await expectLater(
-        repo(auth).signInAdmin('x@example.com', 'secret'),
-        throwsA(isA<AuthException>().having((e) => e.message, 'message', contains('staff access'))),
+        repo(auth).signInWithOtpToken(phone: '9820000001', accessToken: 'tok', staff: true),
+        throwsA(isA<AuthException>().having((e) => e.message, 'message', 'This number is not registered for staff access.')),
       );
       expect(auth.currentUser, isNull);
     });
 
-    test('a missing password never reaches the server', () async {
-      await expectLater(repo(MockFirebaseAuth()).signInAdmin('x@example.com', ''), throwsA(isA<AuthException>()));
+    test('a staff session is restored as admin once onboarding is done', () async {
+      await store.write(StoreKeys.sessionOnboarded, 'true');
+      final auth = MockFirebaseAuth(
+        mockUser: MockUser(uid: 'staff_919820000001', customClaim: {'role': 'admin'}),
+        signedIn: true,
+      );
+      final user = await repo(auth).authState().first;
+      expect(user?.isAdmin, isTrue);
+      expect(user?.onboarded, isTrue);
     });
   });
 }

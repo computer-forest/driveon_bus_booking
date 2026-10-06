@@ -9,6 +9,7 @@ class AuthMessages {
   static const expiredOtp = 'This code has expired. Request a new one.';
   static const serverVerification = "We couldn't verify your number. Please try again.";
   static const sessionNotSaved = "You're verified, but we couldn't save your sign-in on this phone. Request a new code and try again.";
+  static const notStaff = 'This number is not registered for staff access.';
   static const biometricNotEnrolled = 'Set up fingerprint or Face ID in your phone settings first.';
   static const biometricLocked = 'Biometrics are locked. Log in with OTP.';
   static const biometricUnavailable = 'Biometrics are no longer available on this phone. Log in with OTP.';

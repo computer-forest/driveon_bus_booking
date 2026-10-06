@@ -43,16 +43,14 @@ Future<void> enterOtp(WidgetTester tester, String code) async {
   await settle(tester);
 }
 
-/// The admin screen has a "Sign in" heading and a "Sign in" button.
-Future<void> tapSignInButton(WidgetTester tester) async {
-  await tester.tap(find.text('Sign in').last);
-  await settle(tester);
-}
-
-Future<void> signInAsAdmin(WidgetTester tester) async {
+/// Staff sign in with the same OTP flow; the demo staff number is on the
+/// mock allow-list.
+Future<void> signInAsStaff(WidgetTester tester, {String phone = '9820000001'}) async {
   await tapText(tester, 'Skip');
   await tapText(tester, 'Staff sign in');
-  await tapSignInButton(tester);
+  await tester.enterText(find.byType(TextField), phone);
+  await tapText(tester, 'Continue');
+  await enterOtp(tester, '1234');
 }
 
 void main() {
@@ -68,8 +66,10 @@ void main() {
       expect(destinationFor(done), '/home');
     });
 
-    test('an admin always goes to the admin shell', () {
+    test('staff go to the admin shell once their sign-in is finished', () {
+      const midSetup = AppUser(id: 'a', role: UserRole.admin, onboarded: false);
       const admin = AppUser(id: 'a', role: UserRole.admin, onboarded: true);
+      expect(destinationFor(midSetup), '/welcome');
       expect(destinationFor(admin), '/admin');
     });
   });
@@ -140,11 +140,11 @@ void main() {
     expect(find.text('No history bookings.'), findsOneWidget);
   });
 
-  testWidgets('staff sign in lands on the admin dashboard and can sign out', (tester) async {
+  testWidgets('staff sign in by OTP lands on the admin dashboard and can sign out', (tester) async {
     await launch(tester);
-    await signInAsAdmin(tester);
+    await signInAsStaff(tester);
 
-    expect(find.textContaining('Good morning, Priya'), findsOneWidget);
+    expect(find.textContaining('Good morning'), findsOneWidget);
     expect(find.text('Find a bus'), findsNothing);
 
     await tester.tap(find.byTooltip('Sign out'));
@@ -153,14 +153,12 @@ void main() {
     expect(find.text('Skip'), findsOneWidget);
   });
 
-  testWidgets('staff cannot sign in without a password', (tester) async {
+  testWidgets('a number that is not staff is refused after a correct OTP', (tester) async {
     await launch(tester);
-    await tapText(tester, 'Skip');
-    await tapText(tester, 'Staff sign in');
-    await tester.enterText(find.byType(TextField).last, '');
-    await tapSignInButton(tester);
+    await signInAsStaff(tester, phone: '9820011223');
 
-    expect(find.text('Enter your work email and password.'), findsOneWidget);
+    expect(find.text('This number is not registered for staff access.'), findsOneWidget);
     expect(find.textContaining('Good morning'), findsNothing);
+    expect(find.text('Staff sign in'), findsWidgets); // back on the staff number screen
   });
 }

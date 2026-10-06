@@ -63,9 +63,9 @@ class Msg91Config {
 const bool useFakeOtp = bool.fromEnvironment('MSG91_FAKE');
 
 /// Use the real Firebase backend (customers and staff sign in against
-/// `driveon-charter`). Off by default so builds keep working with the
-/// on-device stand-in until the sign-in function is deployed.
-const bool useFirebase = bool.fromEnvironment('USE_FIREBASE');
+/// `driveon-charter`). On by default; `--dart-define=USE_FIREBASE=false`
+/// falls back to the on-device stand-in for offline demos.
+const bool useFirebase = bool.fromEnvironment('USE_FIREBASE', defaultValue: true);
 
 /// Point Firebase at local emulators on this host (`127.0.0.1` on a desktop
 /// or iOS simulator, `10.0.2.2` on an Android emulator). Empty = the real project.

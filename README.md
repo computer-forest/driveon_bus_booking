@@ -117,9 +117,8 @@ platform: `com.busbooking.driveon.charter`. The generated
 `google-services.json` / `GoogleService-Info.plist` are gitignored; recreate
 them with `flutterfire configure --project=driveon-charter`.
 
-The app still uses the on-device stand-in for sign-in unless you build with
-`--dart-define=USE_FIREBASE=true`. Turn that on once the functions are
-deployed (needs the Blaze plan).
+The app signs in against Firebase by default. For an offline demo with the
+on-device stand-in, build with `--dart-define=USE_FIREBASE=false`.
 
 | What | Where |
 |---|---|
@@ -151,12 +150,17 @@ npm test        # security rules
 npm run e2e     # functions + rules + auth together, in the emulators
 ```
 
-**Create the first staff account** (it cannot come from the app):
+**Staff access** is by the same mobile OTP as customers (staff tap "Staff sign
+in"). After MSG91 verifies the number, `verifyMsg91Token` checks it against the
+`staff` collection in Firestore: a document whose ID is the number with country
+code (e.g. `919876543210`) and fields `name` (string) and `active` (boolean,
+must be `true`). A number that is not on the list is refused even with a
+correct OTP. The collection is closed to every client (rules deny it); add or
+deactivate staff in the Firebase console (Firestore Database > `staff`).
+Staff and customer accounts are separate (`staff_...` / `cust_...`).
 
-```bash
-cd functions
-FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 npm run create-admin -- you@example.com "Your Name" 'password'
-```
+Note: deactivating a staff member stops new sign-ins immediately, but a phone
+that is already signed in keeps its role until its token refreshes (up to an
+hour) or the user is signed out from Authentication > Users.
 
-For the real project, point `GOOGLE_APPLICATION_CREDENTIALS` at a service
-account key instead, and delete the key afterwards.
+For the emulator tests, `rules-tests/e2e.test.js` seeds its own staff entries.

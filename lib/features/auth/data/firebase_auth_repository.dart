@@ -16,7 +16,7 @@ abstract class BackendFunctions {
   /// Sends the MSG91 access token to `verifyMsg91Token`, which verifies it
   /// with MSG91 and returns a Firebase custom token. [phone] is only read
   /// by the local emulator; production takes the number from MSG91.
-  Future<String> exchangeMsg91Token({required String accessToken, required String phone});
+  Future<String> exchangeMsg91Token({required String accessToken, required String phone, required bool staff});
 
   /// Erases the signed-in customer's data and sign-in (`deleteAccount`).
   Future<void> deleteAccount();
@@ -31,10 +31,12 @@ class CloudBackendFunctions implements BackendFunctions {
   final FirebaseFunctions _functions;
 
   @override
-  Future<String> exchangeMsg91Token({required String accessToken, required String phone}) async {
-    final result = await _functions
-        .httpsCallable('verifyMsg91Token')
-        .call<Map<Object?, Object?>>({'accessToken': accessToken, 'phone': phone});
+  Future<String> exchangeMsg91Token({required String accessToken, required String phone, required bool staff}) async {
+    final result = await _functions.httpsCallable('verifyMsg91Token').call<Map<Object?, Object?>>({
+      'accessToken': accessToken,
+      'phone': phone,
+      'audience': staff ? 'staff' : 'customer',
+    });
     final token = result.data['customToken'];
     if (token is! String || token.isEmpty) throw const AuthException(AuthMessages.serverVerification);
     return token;
@@ -44,8 +46,9 @@ class CloudBackendFunctions implements BackendFunctions {
   Future<void> deleteAccount() => _functions.httpsCallable('deleteAccount').call<void>();
 }
 
-/// Real sign-in: customers by MSG91 token exchanged for a Firebase custom
-/// token, staff by email and password. The role is a server-set claim.
+/// Real sign-in: customers and staff both verify their number with MSG91
+/// and exchange the token for a Firebase custom token; the server decides
+/// the role (staff only if the number is on the allow-list).
 ///
 /// What the server knows (the profile) lives in `users/{uid}`; what only
 /// this phone knows (whether first-sign-in finished here) lives in secure
@@ -81,9 +84,10 @@ class FirebaseAuthRepository implements AuthRepository {
       return AppUser(
         id: user.uid,
         role: UserRole.admin,
-        name: user.displayName ?? user.email,
+        name: user.displayName ?? 'Staff',
         email: user.email,
-        onboarded: true,
+        phone: _phoneFromUid(user.uid),
+        onboarded: await _store.read(StoreKeys.sessionOnboarded) == 'true',
       );
     }
     Map<String, dynamic>? profile;
@@ -104,7 +108,7 @@ class FirebaseAuthRepository implements AuthRepository {
     );
   }
 
-  /// `cust_919820011223` → `98200 11223`.
+  /// `cust_919820011223` / `staff_919820011223` → `98200 11223`.
   static String? _phoneFromUid(String uid) {
     final digits = uid.replaceAll(RegExp(r'\D'), '');
     return digits.length >= 10 ? Phone.pretty(digits.substring(digits.length - 10)) : null;
@@ -129,17 +133,22 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<AppUser> signInWithOtpToken({required String phone, required String accessToken}) async {
+  Future<AppUser> signInWithOtpToken({required String phone, required String accessToken, bool staff = false}) async {
     // The biometric offer must still be shown on this phone.
     await _store.write(StoreKeys.sessionOnboarded, 'false');
     try {
-      final customToken = await _functions.exchangeMsg91Token(accessToken: accessToken, phone: Phone.digits(phone));
+      final customToken =
+          await _functions.exchangeMsg91Token(accessToken: accessToken, phone: Phone.digits(phone), staff: staff);
       await _auth.signInWithCustomToken(customToken);
     } on AuthException {
       rethrow;
     } on FirebaseFunctionsException catch (e) {
       const offline = {'unavailable', 'deadline-exceeded'};
-      throw AuthException(offline.contains(e.code) ? AuthMessages.noInternet : AuthMessages.serverVerification);
+      throw AuthException(switch (e.code) {
+        'permission-denied' => staff ? AuthMessages.notStaff : AuthMessages.serverVerification,
+        _ when offline.contains(e.code) => AuthMessages.noInternet,
+        _ => AuthMessages.serverVerification,
+      });
     } on FirebaseAuthException catch (e) {
       throw AuthException(e.code == 'network-request-failed' ? AuthMessages.noInternet : AuthMessages.serverVerification);
     }
@@ -147,7 +156,8 @@ class FirebaseAuthRepository implements AuthRepository {
     final user = _auth.currentUser!;
     await _store.write(StoreKeys.lastPhone, Phone.digits(phone));
     final ref = _profile(user.uid);
-    if (!(await ref.get()).exists) {
+    // Staff have no customer profile.
+    if (!staff && !(await ref.get()).exists) {
       await ref.set({
         'name': '',
         'email': '',
@@ -159,28 +169,6 @@ class FirebaseAuthRepository implements AuthRepository {
     final signedIn = (await _toUser(user))!;
     _refreshes.add(signedIn);
     return signedIn;
-  }
-
-  @override
-  Future<AppUser> signInAdmin(String email, String password) async {
-    if (!email.contains('@') || password.isEmpty) {
-      throw const AuthException('Enter your work email and password.');
-    }
-    try {
-      await _auth.signInWithEmailAndPassword(email: email.trim(), password: password);
-    } on FirebaseAuthException catch (e) {
-      throw AuthException(switch (e.code) {
-        'network-request-failed' => AuthMessages.noInternet,
-        'too-many-requests' => 'Too many attempts. Try again in a few minutes.',
-        _ => 'That email and password do not match. Check them and try again.',
-      });
-    }
-    final user = await _toUser(_auth.currentUser);
-    if (user == null || !user.isAdmin) {
-      await _auth.signOut();
-      throw const AuthException('This account does not have staff access.');
-    }
-    return user;
   }
 
   @override

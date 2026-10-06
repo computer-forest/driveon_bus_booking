@@ -1,3 +1,4 @@
+import 'package:charter_booking_ui/features/auth/data/secure_store.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_test/flutter_test.dart';
 
@@ -271,13 +272,37 @@ void main() {
       expect(backend.user.value?.onboarded, isTrue);
     });
 
-    test('staff need an email and a password', () async {
-      final auth = MockAuthRepository(MockBackend());
-      await expectLater(auth.signInAdmin('nope', 'x'), throwsA(isA<AuthException>()));
-      await expectLater(auth.signInAdmin('ops@example.com', ''), throwsA(isA<AuthException>()));
-      final admin = await auth.signInAdmin('ops@example.com', 'secret');
+    test('staff sign in only if their verified number is on the allow-list', () async {
+      final backend = MockBackend();
+      final auth = MockAuthRepository(backend);
+      await expectLater(
+        auth.signInWithOtpToken(phone: '9820011223', accessToken: 'token', staff: true),
+        throwsA(isA<AuthException>().having((e) => e.message, 'message', contains('not registered for staff'))),
+      );
+      expect(backend.user.value, isNull);
+
+      final admin = await auth.signInWithOtpToken(phone: '9820000001', accessToken: 'token', staff: true);
       expect(admin.isAdmin, isTrue);
-      expect(admin.onboarded, isTrue);
+      expect(admin.id, 'staff_919820000001');
+      expect(admin.onboarded, isFalse); // still to choose biometrics on this phone
+    });
+
+    test('a staff number signing in as a customer is only a customer', () async {
+      final user = await MockAuthRepository(MockBackend())
+          .signInWithOtpToken(phone: '9820000001', accessToken: 'token');
+      expect(user.isAdmin, isFalse);
+      expect(user.id, 'cust_919820000001');
+    });
+
+    test('a staff session is restored as staff on the next launch', () async {
+      final store = InMemorySecureStore();
+      final first = MockAuthRepository(MockBackend(), store: store);
+      await first.signInWithOtpToken(phone: '9820000001', accessToken: 'token', staff: true);
+      await first.completeOnboarding();
+
+      final restored = await MockAuthRepository(MockBackend(), store: store).authState().first;
+      expect(restored?.isAdmin, isTrue);
+      expect(restored?.onboarded, isTrue);
     });
 
     test('signing out and deleting the account both clear the session', () async {
