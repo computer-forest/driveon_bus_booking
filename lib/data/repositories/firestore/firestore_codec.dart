@@ -284,6 +284,9 @@ class Codec {
         stage: BookingStage.values.asNameMap()[m['stage']] ?? BookingStage.requested,
         holdExpiresAt: m['holdExpiresAt'] as DateTime?,
         pickupLandmark: _str(m['pickupLandmark']),
+        createdAt: m['createdAt'] as DateTime?,
+        confirmedAt: m['confirmedAt'] as DateTime?,
+        refundedAmount: (m['refundedAmount'] as num?)?.toInt() ?? 0,
       );
 
   static Payment paymentFromMap(String id, Map<String, dynamic> m) => Payment(
@@ -319,5 +322,18 @@ class Codec {
         reason: m['reason'] as String? ?? '',
         status: CancellationStatus.values.asNameMap()[m['status']] ?? CancellationStatus.pending,
         createdAt: (m['createdAt'] as DateTime?) ?? DateTime.fromMillisecondsSinceEpoch(0),
+        decisionNote: m['decisionNote'] as String? ?? '',
+        refundAmount: (m['refundAmount'] as num?)?.toInt() ?? 0,
+      );
+
+  static AppNotification notificationFromMap(String id, Map<String, dynamic> m) => AppNotification(
+        id: id,
+        title: m['title'] as String? ?? '',
+        body: m['body'] as String? ?? '',
+        // A notification just written by the server has no timestamp for a moment.
+        createdAt: (m['createdAt'] as DateTime?) ?? DateTime.now(),
+        read: m['read'] as bool? ?? false,
+        tone: NotificationTone.values.asNameMap()[m['tone']] ?? NotificationTone.info,
+        bookingId: _str(m['bookingId']),
       );
 }

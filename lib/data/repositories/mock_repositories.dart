@@ -210,8 +210,48 @@ class MockBookingRepository implements BookingRepository {
   }
 
   @override
-  Future<void> cancel(String bookingId, {String reason = ''}) async =>
-      _put(_get(bookingId, _editable, 'cancel').copyWith(stage: BookingStage.cancelled));
+  Future<void> cancel(
+    String bookingId, {
+    String reason = '',
+    int refundAmount = 0,
+    String mode = 'UPI',
+    String reference = '',
+    String? requestId,
+  }) async {
+    final b = _get(bookingId, _editable, 'cancel');
+    if (refundAmount > b.amountPaid) {
+      throw BookingException('The refund cannot be more than what was paid (₹${b.amountPaid}).');
+    }
+    final request = requestId == null ? null : _request(requestId, bookingId);
+    _pay(b, PaymentKind.refund, refundAmount, mode, reference);
+    _put(b.copyWith(
+      stage: BookingStage.cancelled,
+      amountPaid: b.amountPaid - refundAmount,
+      refundedAmount: refundAmount,
+    ));
+    if (request != null) {
+      _b.cancellations.upsert(
+        (e) => e.id == request.id,
+        request.copyWith(status: CancellationStatus.approved, refundAmount: refundAmount),
+      );
+    }
+  }
+
+  CancellationRequest _request(String id, String bookingId) {
+    final r = _b.cancellations.items.where((e) => e.id == id && e.bookingId == bookingId).firstOrNull;
+    if (r == null) throw const BookingException('No such cancellation request for this booking.');
+    if (r.status != CancellationStatus.pending) throw const BookingException('That request has already been decided.');
+    return r;
+  }
+
+  @override
+  Future<void> declineCancellation(String bookingId, {required String requestId, String note = ''}) async {
+    final r = _request(requestId, bookingId);
+    _b.cancellations.upsert(
+      (e) => e.id == r.id,
+      r.copyWith(status: CancellationStatus.declined, decisionNote: note),
+    );
+  }
 }
 
 class MockSearchRepository implements SearchRepository {
@@ -318,7 +358,9 @@ class MockPackageRepository implements PackageRepository {
 
 class MockReportRepository implements ReportRepository {
   @override
-  Stream<List<ReportMetric>> watchMetrics() => Stream.value(MockData.reportMetrics);
+  Stream<List<DateTime>> watchSearchMisses() => Stream.value([
+        for (var i = 0; i < 5; i++) MockData.now.subtract(Duration(hours: 2 * i + 1)),
+      ]);
 }
 
 class MockConfigRepository implements ConfigRepository {
@@ -339,6 +381,9 @@ class MockPaymentRepository implements PaymentRepository {
   @override
   Stream<List<Payment>> watchForBooking(String bookingId) =>
       _b.payments.watch().map((all) => all.where((p) => p.bookingId == bookingId).toList());
+
+  @override
+  Stream<List<Payment>> watchAll() => _b.payments.watch();
 
 }
 

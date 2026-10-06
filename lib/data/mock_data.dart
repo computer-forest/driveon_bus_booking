@@ -571,15 +571,6 @@ class MockData {
     ),
   ];
 
-  static const reportMetrics = [
-    ReportMetric(label: 'Requests today', value: '18', sublabel: '+4 vs yesterday'),
-    ReportMetric(label: 'Confirmed today', value: '11'),
-    ReportMetric(label: 'Outstanding payments', value: '₹86,200', sublabel: 'across 9 bookings'),
-    ReportMetric(label: 'Fleet utilisation', value: '62%', sublabel: 'this week'),
-    ReportMetric(label: 'Failed searches', value: '5', sublabel: 'no bus available'),
-    ReportMetric(label: 'Avg. hold-to-confirm', value: '14 min'),
-  ];
-
   static final List<AuditEntry> auditLog = [
     AuditEntry(
       id: 'aud-1',
@@ -617,28 +608,28 @@ class MockData {
       name: 'Booking confirmed',
       channel: 'Push + Email',
       trigger: 'On advance/full payment recorded',
-      preview: 'Your bus is confirmed! MH-04-BT-7781, driver Suresh Patil...',
+      preview: 'Your bus is confirmed! {bus}, driver {driver}. Booking {reference}.',
     ),
     MessageTemplate(
       id: 'tpl-cost',
       name: 'Cost confirmed',
       channel: 'Push',
       trigger: 'On Admin recording confirmed cost',
-      preview: 'Total fare for your trip is ₹18,000. Advance due: ₹4,500.',
+      preview: 'Total fare for your {route} trip is {fare}. Advance due: {advance}.',
     ),
     MessageTemplate(
       id: 'tpl-realloc',
       name: 'Bus reallocated',
       channel: 'Push + Email',
       trigger: 'On Admin reallocation',
-      preview: 'Your bus has changed to MH-04-CT-9902. New driver...',
+      preview: 'Your bus has changed to {bus}. Driver: {driver}. Booking {reference}.',
     ),
     MessageTemplate(
       id: 'tpl-hold',
       name: 'Hold about to expire',
       channel: 'Push (Admin)',
       trigger: '5 minutes before hold expiry',
-      preview: 'CB-20260914-0472 hold expires in 5 minutes.',
+      preview: '{reference} hold expires in {minutes} minutes.',
     ),
   ];
 

@@ -79,39 +79,13 @@ class _ConfigFormState extends ConsumerState<_ConfigForm> {
   }
 
   Future<void> _addLocation() async {
-    final city = TextEditingController();
-    final area = TextEditingController();
-    final added = await showDialog<bool>(
+    final entered = await showDialog<(String, String)>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add a city or area'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-                controller: city,
-                decoration: const InputDecoration(hintText: 'City')),
-            const SizedBox(height: AppSpacing.md),
-            TextField(
-                controller: area,
-                decoration: const InputDecoration(hintText: 'Area')),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel')),
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Add')),
-        ],
-      ),
+      builder: (_) => const _AddLocationDialog(),
     );
-    final cityName = city.text.trim();
-    final areaName = area.text.trim();
-    city.dispose();
-    area.dispose();
-    if (added != true || cityName.isEmpty || areaName.isEmpty) return;
+    if (entered == null) return;
+    final (cityName, areaName) = entered;
+    if (cityName.isEmpty || areaName.isEmpty) return;
     if (!mounted) return;
     await guardedWrite(
       context,
@@ -294,6 +268,49 @@ class _AddChip extends StatelessWidget {
       onPressed: onPressed,
       icon: const Icon(Icons.add_rounded, size: 16),
       label: const Text('Add'),
+    );
+  }
+}
+
+/// Asks for a city and an area. It owns its controllers so they are disposed
+/// only once the dialog has really closed.
+class _AddLocationDialog extends StatefulWidget {
+  const _AddLocationDialog();
+
+  @override
+  State<_AddLocationDialog> createState() => _AddLocationDialogState();
+}
+
+class _AddLocationDialogState extends State<_AddLocationDialog> {
+  final _city = TextEditingController();
+  final _area = TextEditingController();
+
+  @override
+  void dispose() {
+    _city.dispose();
+    _area.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add a city or area'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(controller: _city, decoration: const InputDecoration(hintText: 'City')),
+          const SizedBox(height: AppSpacing.md),
+          TextField(controller: _area, decoration: const InputDecoration(hintText: 'Area')),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop((_city.text.trim(), _area.text.trim())),
+          child: const Text('Add'),
+        ),
+      ],
     );
   }
 }

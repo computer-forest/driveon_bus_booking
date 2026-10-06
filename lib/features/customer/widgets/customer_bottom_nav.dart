@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/providers.dart';
 import '../../../core/theme/app_radius.dart';
 
-class CustomerBottomNav extends StatelessWidget {
+class CustomerBottomNav extends ConsumerWidget {
   const CustomerBottomNav({super.key, required this.currentIndex, required this.onTap});
 
   final int currentIndex;
@@ -16,7 +18,8 @@ class CustomerBottomNav extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = ref.watch(notificationsProvider).items.where((n) => !n.read).length;
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: AppColors.background,
@@ -35,6 +38,7 @@ class CustomerBottomNav extends StatelessWidget {
                   icon: item.icon,
                   label: item.label,
                   selected: selected,
+                  badge: i == 2 ? unread : 0,
                   onTap: () => onTap(i),
                 ),
               );
@@ -52,12 +56,14 @@ class _NavTapTarget extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.badge = 0,
   });
 
   final IconData icon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +82,11 @@ class _NavTapTarget extends StatelessWidget {
               color: selected ? AppColors.primaryTint : Colors.transparent,
               borderRadius: AppRadius.controlRadius,
             ),
-            child: Icon(icon, size: 22, color: color),
+            child: Badge(
+              isLabelVisible: badge > 0,
+              label: Text('$badge'),
+              child: Icon(icon, size: 22, color: color),
+            ),
           ),
           const SizedBox(height: 3),
           Flexible(

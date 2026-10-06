@@ -119,6 +119,13 @@ class _TemplateEditorState extends ConsumerState<_TemplateEditor> {
             maxLines: 4,
             decoration: const InputDecoration(hintText: 'Template body'),
           ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'The customer sees this text with these filled in: '
+            '{reference}  {route}  {bus}  {driver}  {fare}  {advance}  {minutes}. '
+            'Leave the words {…} exactly as written.',
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
           const SizedBox(height: AppSpacing.lg),
           SizedBox(
             width: double.infinity,

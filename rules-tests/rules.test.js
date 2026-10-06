@@ -90,7 +90,7 @@ test("signed-out visitors can read nothing", async () => {
 
 test("collections that are not open yet stay closed to customers and admins alike", async () => {
   for (const db of [customer("cust_919820011223"), admin()]) {
-    for (const name of ["notifications", "busLocks", "counters", "searchMisses"]) {
+    for (const name of ["busLocks", "counters"]) {
       await assertFails(getDocs(collection(db, name)));
       await assertFails(setDoc(doc(db, `${name}/x`), { a: 1 }));
     }
@@ -284,4 +284,48 @@ test("a customer can ask to cancel their own booking, as pending, and see only t
   await assertFails(getDoc(doc(customer("cust_919999999999"), "cancellations/c1")));
   await assertSucceeds(getDoc(doc(admin(), "cancellations/c1")));
   await assertFails(updateDoc(doc(admin(), "cancellations/c1"), { status: "approved" })); // decided by a staff action, not a client write
+});
+
+// --- notifications, devices, search log ------------------------------------
+
+test("a person reads only their own notifications and can only mark them read", async () => {
+  await seedDoc("notifications/n1", { userId: "cust_919820011223", title: "t", body: "b", read: false });
+  await seedDoc("notifications/n2", { userId: "cust_919999999999", title: "t", body: "b", read: false });
+  const me = customer("cust_919820011223");
+  await assertSucceeds(getDoc(doc(me, "notifications/n1")));
+  await assertFails(getDoc(doc(me, "notifications/n2")));
+  await assertFails(getDoc(doc(admin(), "notifications/n1"))); // not even staff read other people's inbox
+  await assertSucceeds(updateDoc(doc(me, "notifications/n1"), { read: true }));
+  await assertFails(updateDoc(doc(me, "notifications/n1"), { read: false }));
+  await assertFails(updateDoc(doc(me, "notifications/n1"), { title: "forged", read: true }));
+  await assertFails(updateDoc(doc(customer("cust_919999999999"), "notifications/n1"), { read: true }));
+  await assertFails(setDoc(doc(me, "notifications/n3"), { userId: "cust_919820011223", title: "x", body: "y", read: false }));
+  await assertFails(deleteDoc(doc(me, "notifications/n1")));
+});
+
+test("the inbox query for one's own notifications works, a query for everyone's does not", async () => {
+  await seedDoc("notifications/n1", { userId: "cust_919820011223", title: "t", body: "b", read: false, createdAt: new Date() });
+  await seedDoc("notifications/n2", { userId: "cust_919999999999", title: "t", body: "b", read: false, createdAt: new Date() });
+  const { query, where } = require("firebase/firestore");
+  const me = customer("cust_919820011223");
+  const mine = await assertSucceeds(getDocs(query(collection(me, "notifications"), where("userId", "==", "cust_919820011223"))));
+  assert.equal(mine.size, 1);
+  await assertFails(getDocs(collection(me, "notifications")));
+});
+
+test("a person registers and removes their own phone for push, no one else's", async () => {
+  const me = customer("cust_919820011223");
+  await assertSucceeds(setDoc(doc(me, "users/cust_919820011223/devices/tok-1"), { platform: "android", updatedAt: serverTimestamp() }));
+  await assertSucceeds(getDoc(doc(me, "users/cust_919820011223/devices/tok-1")));
+  await assertFails(setDoc(doc(me, "users/cust_919820011223/devices/tok-2"), { platform: "android", updatedAt: serverTimestamp(), extra: 1 }));
+  await assertFails(setDoc(doc(customer("cust_919999999999"), "users/cust_919820011223/devices/tok-3"), { platform: "android", updatedAt: serverTimestamp() }));
+  await assertFails(getDoc(doc(customer("cust_919999999999"), "users/cust_919820011223/devices/tok-1")));
+  await assertSucceeds(deleteDoc(doc(me, "users/cust_919820011223/devices/tok-1")));
+});
+
+test("only staff read the failed-search log, and nobody writes it", async () => {
+  await seedDoc("searchMisses/m1", { customerId: "cust_919820011223", startsAt: "2026-10-10T10:00" });
+  await assertSucceeds(getDoc(doc(admin(), "searchMisses/m1")));
+  await assertFails(getDoc(doc(customer("cust_919820011223"), "searchMisses/m1")));
+  await assertFails(setDoc(doc(admin(), "searchMisses/m2"), { a: 1 }));
 });

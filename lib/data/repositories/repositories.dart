@@ -72,7 +72,21 @@ abstract class BookingRepository {
 
   /// Moves the booking to [newBusId], same dates, if that bus is free.
   Future<void> reallocate(String bookingId, String newBusId);
-  Future<void> cancel(String bookingId, {String reason = ''});
+
+  /// Cancels and releases the bus. [refundAmount] (at most what was paid) is
+  /// recorded as paid back outside the app. With [requestId] this approves
+  /// that customer request.
+  Future<void> cancel(
+    String bookingId, {
+    String reason = '',
+    int refundAmount = 0,
+    String mode = 'UPI',
+    String reference = '',
+    String? requestId,
+  });
+
+  /// Turns down a customer's cancellation request; the booking stands.
+  Future<void> declineCancellation(String bookingId, {required String requestId, String note = ''});
 }
 
 /// Which buses can be chartered for a trip. With a live backend the server
@@ -122,8 +136,10 @@ abstract class PackageRepository {
   Stream<List<PackageLocation>> watchAll();
 }
 
+/// Raw material for reports that the app cannot work out from bookings.
 abstract class ReportRepository {
-  Stream<List<ReportMetric>> watchMetrics();
+  /// When a search found no bus (staff only).
+  Stream<List<DateTime>> watchSearchMisses();
 }
 
 abstract class ConfigRepository {
@@ -135,6 +151,9 @@ abstract class ConfigRepository {
 /// staff action (recordAdvance, recordBalance).
 abstract class PaymentRepository {
   Stream<List<Payment>> watchForBooking(String bookingId);
+
+  /// Every payment, for staff reports.
+  Stream<List<Payment>> watchAll();
 }
 
 abstract class RatingRepository {

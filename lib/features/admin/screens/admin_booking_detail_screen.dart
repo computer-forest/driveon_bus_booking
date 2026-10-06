@@ -106,7 +106,7 @@ class _AdminBookingDetailScreenState extends ConsumerState<AdminBookingDetailScr
 
   Future<void> _cancel() async {
     final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => CancelRefundScreen(reference: widget.booking.reference)),
+      MaterialPageRoute(builder: (_) => CancelRefundScreen(booking: _current)),
     );
     if (result == true && mounted) {
       Navigator.of(context).pop();

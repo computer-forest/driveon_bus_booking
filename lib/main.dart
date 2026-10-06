@@ -15,6 +15,7 @@ import 'features/auth/data/firebase_auth_repository.dart';
 import 'features/auth/data/msg91_otp_service.dart';
 import 'features/auth/data/secure_store.dart';
 import 'features/auth/presentation/auth_gate.dart';
+import 'features/notifications/push_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,11 +35,16 @@ Future<void> main() async {
       biometricServiceProvider.overrideWith((ref) => LocalAuthBiometricService()),
       if (useFirebase) ...firestoreRepositoryOverrides(),
       if (useFirebase)
+        pushServiceProvider.overrideWith(
+          (ref) => DevicePushService(FirebaseFirestore.instance, FirebaseTokenSource()),
+        ),
+      if (useFirebase)
         authRepositoryProvider.overrideWith((ref) => FirebaseAuthRepository(
               auth: FirebaseAuth.instance,
               firestore: FirebaseFirestore.instance,
               functions: CloudBackendFunctions(),
               store: ref.watch(secureStoreProvider),
+              beforeSignOut: ref.read(pushServiceProvider).unregister,
             )),
       otpServiceProvider.overrideWith((ref) => useFakeOtp ? FakeOtpService() : Msg91OtpService(msg91)),
     ],

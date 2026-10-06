@@ -5,6 +5,7 @@ import { CallableRequest, HttpsError, onCall } from "firebase-functions/v2/https
 import { onSchedule } from "firebase-functions/v2/scheduler";
 
 import { Blackout, Bus, DayWindow, Occupied, dayStart, isBusFree, occupiesBus, parseIst } from "./availability";
+import { warnExpiringHolds } from "./bookingEvents";
 
 const db = (): Firestore => getFirestore();
 
@@ -255,7 +256,15 @@ export const createHold = onCall(async (request) => {
 
 // --- staff actions on a booking -----------------------------------------
 
-type Action = "confirmCost" | "recordAdvance" | "startTrip" | "completeTrip" | "recordBalance" | "reallocate" | "cancel";
+type Action =
+  | "confirmCost"
+  | "recordAdvance"
+  | "startTrip"
+  | "completeTrip"
+  | "recordBalance"
+  | "reallocate"
+  | "cancel"
+  | "declineCancellation";
 
 const EDITABLE = ["requested", "costConfirmed", "confirmed"];
 
@@ -271,7 +280,9 @@ const EDITABLE = ["requested", "costConfirmed", "confirmed"];
  *     completeTrip                                   inTrip -> completed
  *     recordBalance { amount, mode?, reference? }   completed -> settled
  *     reallocate    { newBusId }
- *     cancel        { reason? }
+ *     cancel        { reason?, refundAmount?, mode?, reference?, requestId? }   releases the bus; records any refund;
+ *                   with requestId it approves that customer request
+ *     declineCancellation { requestId, note? }
  */
 export const bookingAction = onCall(async (request) => {
   const staffUid = requireAdmin(request);
@@ -295,12 +306,12 @@ export const bookingAction = onCall(async (request) => {
       if (holdLapsed) throw new HttpsError("failed-precondition", "This hold has expired; the bus has been released.");
     };
 
-    const addPayment = (kind: "advance" | "balance", amount: number) => {
+    const addPayment = (kind: "advance" | "balance" | "refund", amount: number) => {
       tx.set(db().collection("payments").doc(), {
         bookingId,
         kind,
         amount,
-        mode: text(request.data?.mode, 40) || (kind === "advance" ? "UPI" : "Cash"),
+        mode: text(request.data?.mode, 40) || (kind === "balance" ? "Cash" : "UPI"),
         reference: text(request.data?.reference, 100),
         receivedOn: Timestamp.fromMillis(now),
         recordedBy: `Admin · ${actor}`,
@@ -324,7 +335,12 @@ export const bookingAction = onCall(async (request) => {
         if (!(Number(b.totalFare) > 0)) throw new HttpsError("failed-precondition", "Set the cost first.");
         const amount = money(request.data?.amount, "The advance", 0);
         if (amount > 0) addPayment("advance", amount);
-        tx.update(ref, { amountPaid: Number(b.amountPaid) + amount, stage: "confirmed", holdExpiresAt: null });
+        tx.update(ref, {
+          amountPaid: Number(b.amountPaid) + amount,
+          stage: "confirmed",
+          holdExpiresAt: null,
+          confirmedAt: FieldValue.serverTimestamp(),
+        });
         audit(tx, actor, staffUid, "Booking confirmed", `${reference} · advance ₹${amount}`, bookingId);
         return { stage: "confirmed" };
       }
@@ -348,9 +364,54 @@ export const bookingAction = onCall(async (request) => {
       }
       case "cancel": {
         need(EDITABLE, "cancel");
-        tx.update(ref, { stage: "cancelled", holdExpiresAt: null, cancelReason: text(request.data?.reason, 300) });
-        audit(tx, actor, staffUid, "Booking cancelled", reference, bookingId);
+        const refund = money(request.data?.refundAmount ?? 0, "The refund", 0);
+        if (refund > Number(b.amountPaid)) {
+          throw new HttpsError("failed-precondition", `The refund cannot be more than what was paid (₹${b.amountPaid}).`);
+        }
+        const requestId = text(request.data?.requestId, 80);
+        const requestRef = requestId ? db().doc(`cancellations/${requestId}`) : null;
+        const requestSnap = requestRef ? await tx.get(requestRef) : null;
+        if (requestSnap) {
+          if (!requestSnap.exists || requestSnap.data()!.bookingId !== bookingId) {
+            throw new HttpsError("not-found", "No such cancellation request for this booking.");
+          }
+          if (requestSnap.data()!.status !== "pending") {
+            throw new HttpsError("failed-precondition", "That request has already been decided.");
+          }
+        }
+        if (refund > 0) addPayment("refund", refund);
+        tx.update(ref, {
+          stage: "cancelled",
+          holdExpiresAt: null,
+          cancelReason: text(request.data?.reason, 300),
+          amountPaid: Number(b.amountPaid) - refund,
+          refundedAmount: refund,
+        });
+        if (requestRef) {
+          tx.update(requestRef, { status: "approved", decidedBy: actor, decidedAt: FieldValue.serverTimestamp(), refundAmount: refund });
+        }
+        audit(tx, actor, staffUid, "Booking cancelled", `${reference}${refund > 0 ? ` · refund ₹${refund}` : ""}`, bookingId);
         return { stage: "cancelled" };
+      }
+      case "declineCancellation": {
+        const requestId = text(request.data?.requestId, 80);
+        if (!requestId) throw new HttpsError("invalid-argument", "requestId is required.");
+        const requestRef = db().doc(`cancellations/${requestId}`);
+        const requestSnap = await tx.get(requestRef);
+        if (!requestSnap.exists || requestSnap.data()!.bookingId !== bookingId) {
+          throw new HttpsError("not-found", "No such cancellation request for this booking.");
+        }
+        if (requestSnap.data()!.status !== "pending") {
+          throw new HttpsError("failed-precondition", "That request has already been decided.");
+        }
+        tx.update(requestRef, {
+          status: "declined",
+          decidedBy: actor,
+          decidedAt: FieldValue.serverTimestamp(),
+          decisionNote: text(request.data?.note, 300),
+        });
+        audit(tx, actor, staffUid, "Cancellation request declined", reference, bookingId);
+        return { stage };
       }
       case "reallocate": {
         need(EDITABLE, "move");
@@ -413,5 +474,6 @@ export async function releaseLapsedHolds(now = Timestamp.now()): Promise<number>
 }
 
 export const expireHolds = onSchedule({ schedule: "every 1 minutes", region: "asia-south1" }, async () => {
+  await warnExpiringHolds();
   await releaseLapsedHolds();
 });

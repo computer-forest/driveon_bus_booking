@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/guarded_write.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/date_format.dart';
@@ -78,15 +79,18 @@ class BookingDetailScreen extends ConsumerWidget {
     );
     if (confirmed == true && context.mounted) {
       final user = ref.read(authStateProvider).value;
-      await ref.read(cancellationRepositoryProvider).request(
-            CancellationRequest(
-              id: newId('cnl'),
-              bookingId: booking.id,
-              requestedBy: user?.id ?? '',
-              createdAt: ref.read(clockProvider)(),
+      final saved = await guardedWrite(
+        context,
+        () => ref.read(cancellationRepositoryProvider).request(
+              CancellationRequest(
+                id: newId('cnl'),
+                bookingId: booking.id,
+                requestedBy: user?.id ?? '',
+                createdAt: ref.read(clockProvider)(),
+              ),
             ),
-          );
-      if (!context.mounted) return;
+      );
+      if (!saved || !context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cancellation requested — our team will confirm shortly.')),
       );
@@ -111,6 +115,13 @@ class BookingDetailScreen extends ConsumerWidget {
         ? null
         : DriverInfo(name: staffDriver?.name ?? bus.driverName, phone: staffDriver?.phone ?? '', busNumber: bus.regNumber);
     final payments = ref.watch(paymentsForBookingProvider(current.id)).items;
+    final requests = ref.watch(cancellationsProvider).items.where((r) => r.bookingId == current.id).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final latest = requests.firstOrNull;
+    final pending = latest?.status == CancellationStatus.pending;
+    final cancellable = current.stage == BookingStage.requested ||
+        current.stage == BookingStage.costConfirmed ||
+        current.stage == BookingStage.confirmed;
     final ledger = _ledgerFor(current, payments);
     return Scaffold(
       appBar: AppBar(title: const Text('Booking detail')),
@@ -165,17 +176,20 @@ class BookingDetailScreen extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(entry.label, style: textTheme.bodyLarge),
-                            if (entry.note != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(entry.note!, style: textTheme.labelSmall),
-                              ),
-                          ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(entry.label, style: textTheme.bodyLarge),
+                              if (entry.note != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(entry.note!, style: textTheme.labelSmall),
+                                ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: AppSpacing.md),
                         Text(
                           entry.amount,
                           style: textTheme.titleSmall?.copyWith(
@@ -190,18 +204,38 @@ class BookingDetailScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.xxl),
-            SecondaryButton(
-              label: 'Rate this trip',
-              icon: Icons.star_outline_rounded,
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RatingScreen(booking: current))),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Center(
-              child: TextButton(
-                onPressed: () => _requestCancellation(context, ref, current),
-                child: Text('Request cancellation', style: textTheme.labelLarge?.copyWith(color: AppColors.urgent)),
+            if (current.stage == BookingStage.completed || current.stage == BookingStage.settled)
+              SecondaryButton(
+                label: 'Rate this trip',
+                icon: Icons.star_outline_rounded,
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RatingScreen(booking: current))),
               ),
-            ),
+            if (current.stage == BookingStage.cancelled || current.stage == BookingStage.expired)
+              Text(
+                current.stage == BookingStage.cancelled
+                    ? 'This booking was cancelled.'
+                    : 'This hold ran out and the bus was released.',
+                style: textTheme.bodyMedium,
+              ),
+            if (latest?.status == CancellationStatus.declined && cancellable) ...[
+              Text(
+                'Your cancellation request was declined.${latest!.decisionNote.isEmpty ? '' : ' ${latest.decisionNote}'}',
+                style: textTheme.bodyMedium,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+            if (cancellable) ...[
+              const SizedBox(height: AppSpacing.md),
+              Center(
+                child: TextButton(
+                  onPressed: pending ? null : () => _requestCancellation(context, ref, current),
+                  child: Text(
+                    pending ? 'Cancellation requested — awaiting our team' : 'Request cancellation',
+                    style: textTheme.labelLarge?.copyWith(color: pending ? AppColors.textTertiary : AppColors.urgent),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

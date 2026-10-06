@@ -8,11 +8,13 @@ import '../../../core/widgets/app_atoms.dart';
 import '../../../data/models.dart';
 import '../../../data/providers.dart';
 import '../widgets/admin_bottom_nav.dart';
+import 'admin_notifications_screen.dart';
 import 'audit_log_screen.dart';
 import 'blackout_maintenance_screen.dart';
 import 'booking_queue_screen.dart';
 import 'bus_calendar_screen.dart';
 import 'bus_list_screen.dart';
+import 'cancellation_requests_screen.dart';
 import 'masters_config_screen.dart';
 import 'notification_templates_screen.dart';
 import 'reports_screen.dart';
@@ -27,8 +29,12 @@ class AdminDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
-    final holdCount = ref.watch(bookingsProvider).items.where((b) => b.isHold).length;
-    final metrics = ref.watch(reportMetricsProvider).items;
+    final now = ref.watch(clockProvider)();
+    final holdCount = ref.watch(bookingsProvider).items.where((b) => b.isHold && b.holdSecondsLeft(now) > 0).length;
+    final metrics = ref.watch(reportMetricsProvider);
+    final unread = ref.watch(notificationsProvider).items.where((n) => !n.read).length;
+    final pendingCancellations =
+        ref.watch(cancellationsProvider).items.where((r) => r.status == CancellationStatus.pending).length;
     final adminName = ref.watch(authStateProvider).value?.name ?? 'there';
     return Scaffold(
       body: SafeArea(
@@ -41,6 +47,17 @@ class AdminDashboardScreen extends ConsumerWidget {
                   child: Text('Good morning, $adminName', style: textTheme.displaySmall?.copyWith(fontSize: 24)),
                 ),
                 IconButton(
+                  tooltip: 'Notifications',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AdminNotificationsScreen()),
+                  ),
+                  icon: Badge(
+                    isLabelVisible: unread > 0,
+                    label: Text('$unread'),
+                    child: const Icon(Icons.notifications_none_rounded, color: AppColors.textSecondary),
+                  ),
+                ),
+                IconButton(
                   tooltip: 'Sign out',
                   onPressed: () => ref.read(authRepositoryProvider).signOut(),
                   icon: const Icon(Icons.logout_rounded, color: AppColors.textSecondary),
@@ -48,7 +65,7 @@ class AdminDashboardScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 4),
-            Text('Operations console · Neeta Travels fleet', style: textTheme.bodyMedium),
+            Text('Operations console', style: textTheme.bodyMedium),
             const SizedBox(height: AppSpacing.xl),
             Container(
               padding: const EdgeInsets.all(AppSpacing.lg),
@@ -86,6 +103,12 @@ class AdminDashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.xl),
             const SectionLabel('Manage'),
+            _shortcut(
+              context,
+              Icons.event_busy_outlined,
+              pendingCancellations > 0 ? 'Cancellation requests ($pendingCancellations waiting)' : 'Cancellation requests',
+              const CancellationRequestsScreen(),
+            ),
             _shortcut(context, Icons.storefront_outlined, 'Vendors', const VendorListScreen()),
             _shortcut(context, Icons.directions_bus_filled_outlined, 'Buses', const BusListScreen()),
             _shortcut(context, Icons.block_rounded, 'Blackout & maintenance', const BlackoutMaintenanceScreen()),

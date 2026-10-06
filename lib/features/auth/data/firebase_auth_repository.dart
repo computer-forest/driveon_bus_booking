@@ -59,7 +59,9 @@ class FirebaseAuthRepository implements AuthRepository {
     required FirebaseFirestore firestore,
     required BackendFunctions functions,
     required SecureStore store,
-  })  : _auth = auth,
+    Future<void> Function()? beforeSignOut,
+  })  : _beforeSignOut = beforeSignOut,
+        _auth = auth,
         _firestore = firestore,
         _functions = functions,
         _store = store;
@@ -68,6 +70,9 @@ class FirebaseAuthRepository implements AuthRepository {
   final FirebaseFirestore _firestore;
   final BackendFunctions _functions;
   final SecureStore _store;
+
+  /// Runs while still signed in, e.g. to stop push notifications to this phone.
+  final Future<void> Function()? _beforeSignOut;
 
   /// Pushed after anything that changes the user without Firebase noticing
   /// (profile edits, finishing onboarding).
@@ -199,6 +204,9 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Future<void> signOut() async {
+    try {
+      await _beforeSignOut?.call();
+    } catch (_) {}
     await _forgetDevice();
     await _auth.signOut();
     _refreshes.add(null);
@@ -206,7 +214,16 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Future<void> deleteAccount() async {
-    await _functions.deleteAccount();
+    try {
+      await _functions.deleteAccount();
+    } on FirebaseFunctionsException catch (e) {
+      // The server explains why in words ("you have bookings in progress").
+      throw AuthException(switch (e.code) {
+        'failed-precondition' => e.message ?? AuthMessages.serverProblem,
+        'unavailable' || 'deadline-exceeded' => AuthMessages.noInternet,
+        _ => 'We could not delete your account just now. Please try again.',
+      });
+    }
     await signOut();
   }
 }

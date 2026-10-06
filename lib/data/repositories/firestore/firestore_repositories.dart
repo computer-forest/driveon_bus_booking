@@ -291,7 +291,25 @@ class FirestoreBookingRepository extends FirestoreBase implements BookingReposit
       _action(bookingId, 'reallocate', {'newBusId': newBusId});
 
   @override
-  Future<void> cancel(String bookingId, {String reason = ''}) => _action(bookingId, 'cancel', {'reason': reason});
+  Future<void> cancel(
+    String bookingId, {
+    String reason = '',
+    int refundAmount = 0,
+    String mode = 'UPI',
+    String reference = '',
+    String? requestId,
+  }) =>
+      _action(bookingId, 'cancel', {
+        'reason': reason,
+        'refundAmount': refundAmount,
+        'mode': mode,
+        'reference': reference,
+        if (requestId != null) 'requestId': requestId,
+      });
+
+  @override
+  Future<void> declineCancellation(String bookingId, {required String requestId, String note = ''}) =>
+      _action(bookingId, 'declineCancellation', {'requestId': requestId, 'note': note});
 }
 
 /// Which buses the server says are free; the bus details come from the
@@ -326,6 +344,10 @@ class FirestorePaymentRepository extends FirestoreBase implements PaymentReposit
   Stream<List<Payment>> watchForBooking(String bookingId) =>
       list(db.collection('payments').where('bookingId', isEqualTo: bookingId), Codec.paymentFromMap)
           .map((all) => all..sort((a, b) => a.receivedOn.compareTo(b.receivedOn)));
+
+  /// Staff only: every payment, for the reports.
+  @override
+  Stream<List<Payment>> watchAll() => list(db.collection('payments'), Codec.paymentFromMap);
 }
 
 class FirestoreRatingRepository extends FirestoreBase implements RatingRepository {
@@ -340,14 +362,53 @@ class FirestoreRatingRepository extends FirestoreBase implements RatingRepositor
 }
 
 class FirestoreCancellationRepository extends FirestoreBase implements CancellationRepository {
-  FirestoreCancellationRepository(super.db, super.currentUid);
+  FirestoreCancellationRepository(super.db, super.currentUid, {this.isAdmin = false});
 
+  final bool isAdmin;
+
+  /// Staff see every request; a customer sees only their own.
   @override
-  Stream<List<CancellationRequest>> watchAll() => list(db.collection('cancellations'), Codec.cancellationFromMap);
+  Stream<List<CancellationRequest>> watchAll() {
+    final uid = currentUid();
+    if (uid == null) return Stream.value(const []);
+    final query = isAdmin
+        ? db.collection('cancellations')
+        : db.collection('cancellations').where('requestedBy', isEqualTo: uid);
+    return list(query, Codec.cancellationFromMap);
+  }
 
   @override
   Future<void> request(CancellationRequest request) => db.doc('cancellations/${request.id}').set({
         ...Codec.cancellationToMap(request),
         'createdAt': FieldValue.serverTimestamp(),
       });
+}
+
+/// The customer's or staff member's inbox. The server writes every entry;
+/// the app can only mark one read.
+class FirestoreNotificationRepository extends FirestoreBase implements NotificationRepository {
+  FirestoreNotificationRepository(super.db, super.currentUid);
+
+  @override
+  Stream<List<AppNotification>> watchAll() {
+    final uid = currentUid();
+    if (uid == null) return Stream.value(const []);
+    return list(
+      db.collection('notifications').where('userId', isEqualTo: uid).orderBy('createdAt', descending: true).limit(50),
+      Codec.notificationFromMap,
+    );
+  }
+
+  @override
+  Future<void> markRead(String id) => db.doc('notifications/$id').update({'read': true});
+}
+
+class FirestoreReportRepository extends FirestoreBase implements ReportRepository {
+  FirestoreReportRepository(super.db, super.currentUid);
+
+  @override
+  Stream<List<DateTime>> watchSearchMisses() => db.collection('searchMisses').snapshots().map((s) => [
+        for (final d in s.docs)
+          if (d.data()['at'] is Timestamp) (d.data()['at'] as Timestamp).toDate(),
+      ]);
 }

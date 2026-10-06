@@ -212,7 +212,34 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // busLocks, counters and searchMisses are the server's own bookkeeping.
+    // The in-app inbox. Written only by the server; a person reads their own
+    // and may mark them read, nothing else.
+    match /notifications/{id} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && request.resource.data.read == true;
+      allow create, delete: if false;
+    }
+
+    // Phones that should receive this person's push notifications. The token
+    // is the document id.
+    match /users/{uid}/devices/{token} {
+      allow read, delete: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['platform', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    // Searches that found no bus, for the reports. Written by the server.
+    match /searchMisses/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // busLocks and counters are the server's own bookkeeping.
 
     match /{document=**} {
       allow read, write: if false;

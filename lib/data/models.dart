@@ -147,6 +147,9 @@ class Booking {
     this.customerId,
     this.holdExpiresAt,
     this.pickupLandmark,
+    this.createdAt,
+    this.confirmedAt,
+    this.refundedAmount = 0,
   });
 
   final String id;
@@ -172,6 +175,14 @@ class Booking {
   final DateTime? holdExpiresAt;
   final String? pickupLandmark;
 
+  /// When the customer held the bus, and when staff confirmed it. Set by the
+  /// server; they feed the reports.
+  final DateTime? createdAt;
+  final DateTime? confirmedAt;
+
+  /// Money paid back after a cancellation. [amountPaid] is net of it.
+  final int refundedAmount;
+
   int get balanceDue => totalFare - amountPaid;
   bool get isHold => stage == BookingStage.requested;
 
@@ -192,6 +203,7 @@ class Booking {
     String? busReg,
     int? totalFare,
     int? amountPaid,
+    int? refundedAmount,
   }) =>
       Booking(
         id: id,
@@ -210,6 +222,9 @@ class Booking {
         stage: stage ?? this.stage,
         holdExpiresAt: holdExpiresAt,
         pickupLandmark: pickupLandmark,
+        createdAt: createdAt,
+        confirmedAt: confirmedAt,
+        refundedAmount: refundedAmount ?? this.refundedAmount,
       );
 }
 
@@ -423,6 +438,7 @@ class AppNotification {
     required this.createdAt,
     required this.read,
     this.tone = NotificationTone.info,
+    this.bookingId,
   });
 
   final String id;
@@ -432,6 +448,9 @@ class AppNotification {
   final bool read;
   final NotificationTone tone;
 
+  /// The booking this is about, so tapping it can open that booking.
+  final String? bookingId;
+
   AppNotification copyWith({bool? read}) => AppNotification(
         id: id,
         title: title,
@@ -439,6 +458,7 @@ class AppNotification {
         createdAt: createdAt,
         read: read ?? this.read,
         tone: tone,
+        bookingId: bookingId,
       );
 }
 
@@ -572,6 +592,8 @@ class CancellationRequest {
     required this.createdAt,
     this.reason = '',
     this.status = CancellationStatus.pending,
+    this.decisionNote = '',
+    this.refundAmount = 0,
   });
 
   final String id;
@@ -580,4 +602,20 @@ class CancellationRequest {
   final String reason;
   final CancellationStatus status;
   final DateTime createdAt;
+
+  /// Staff's note when they decline, shown to the customer.
+  final String decisionNote;
+  final int refundAmount;
+
+  CancellationRequest copyWith({CancellationStatus? status, String? decisionNote, int? refundAmount}) =>
+      CancellationRequest(
+        id: id,
+        bookingId: bookingId,
+        requestedBy: requestedBy,
+        createdAt: createdAt,
+        reason: reason,
+        status: status ?? this.status,
+        decisionNote: decisionNote ?? this.decisionNote,
+        refundAmount: refundAmount ?? this.refundAmount,
+      );
 }

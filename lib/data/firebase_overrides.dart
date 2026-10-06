@@ -38,7 +38,17 @@ List<Override> firestoreRepositoryOverrides({FirebaseFirestore? db, FirebaseAuth
     ),
     paymentRepositoryProvider.overrideWith((ref) => FirestorePaymentRepository(firestore, uid)),
     ratingRepositoryProvider.overrideWith((ref) => FirestoreRatingRepository(firestore, uid)),
-    cancellationRepositoryProvider.overrideWith((ref) => FirestoreCancellationRepository(firestore, uid)),
+    cancellationRepositoryProvider.overrideWith((ref) {
+      final isAdmin = ref.watch(authStateProvider.select((u) => u.value?.isAdmin ?? false));
+      ref.watch(authStateProvider.select((u) => u.value?.id));
+      return FirestoreCancellationRepository(firestore, uid, isAdmin: isAdmin);
+    }),
+    // The inbox follows whoever is signed in.
+    notificationRepositoryProvider.overrideWith((ref) {
+      ref.watch(authStateProvider.select((u) => u.value?.id));
+      return FirestoreNotificationRepository(firestore, uid);
+    }),
+    reportRepositoryProvider.overrideWith((ref) => FirestoreReportRepository(firestore, uid)),
     // Real time, now that bookings are real.
     clockProvider.overrideWith((ref) => DateTime.now),
   ];

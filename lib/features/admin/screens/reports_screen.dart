@@ -4,15 +4,24 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../data/providers.dart';
+import '../../../data/reports.dart';
 import '../widgets/admin_bottom_nav.dart';
 import 'booking_queue_screen.dart';
 import 'bus_calendar_screen.dart';
 import 'bus_list_screen.dart';
 
-/// ADM-12: bookings by status, advance/balance recorded, outstanding
-/// payments, bus utilisation, vendor-wise counts, failed searches.
-class ReportsScreen extends ConsumerWidget {
+/// ADM-12: requests and confirmations, money collected, outstanding
+/// payments, fleet utilisation, vendor-wise bookings, failed searches, all
+/// worked out from the real records for the chosen period.
+class ReportsScreen extends ConsumerStatefulWidget {
   const ReportsScreen({super.key});
+
+  @override
+  ConsumerState<ReportsScreen> createState() => _ReportsScreenState();
+}
+
+class _ReportsScreenState extends ConsumerState<ReportsScreen> {
+  ReportPeriod _period = ReportPeriod.today;
 
   void _onNavTap(BuildContext context, int index) {
     switch (index) {
@@ -29,11 +38,12 @@ class ReportsScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final metrics = ref.watch(reportMetricsProvider).items;
-    final vendors = ref.watch(vendorsProvider).items;
-    final buses = ref.watch(busesProvider).items;
+    final report = ref.watch(reportProvider(_period));
+    final metrics = report.metrics;
+    final vendors = report.vendors;
+    final maxBookings = vendors.fold<int>(1, (m, v) => v.bookings > m ? v.bookings : m);
     return Scaffold(
       appBar: AppBar(title: const Text('Reports')),
       body: SafeArea(
@@ -41,13 +51,10 @@ class ReportsScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(
               AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.xxl),
           children: [
-            Row(
+            Wrap(
+              spacing: AppSpacing.sm,
               children: [
-                _filterChip(context, 'Today', selected: true),
-                const SizedBox(width: AppSpacing.sm),
-                _filterChip(context, 'This week', selected: false),
-                const SizedBox(width: AppSpacing.sm),
-                _filterChip(context, 'This month', selected: false),
+                for (final p in ReportPeriod.values) _filterChip(context, p),
               ],
             ),
             const SizedBox(height: AppSpacing.xl),
@@ -57,7 +64,7 @@ class ReportsScreen extends ConsumerWidget {
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: AppSpacing.md,
               mainAxisSpacing: AppSpacing.md,
-              childAspectRatio: 1.5,
+              childAspectRatio: 1.3,
               children: metrics.map((m) {
                 return Container(
                   padding: const EdgeInsets.all(AppSpacing.md),
@@ -83,35 +90,29 @@ class ReportsScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.xl),
             Text('Vendor-wise bookings', style: textTheme.titleSmall),
             const SizedBox(height: AppSpacing.md),
-            for (final v in vendors) ...[
-              Builder(builder: (context) {
-                final busCount = buses.where((b) => b.vendorId == v.id).length;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: Row(
-                    children: [
-                      Expanded(
-                          child: Text(v.name, style: textTheme.bodyMedium)),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: SizedBox(
-                          width: 120,
-                          height: 8,
-                          child: LinearProgressIndicator(
-                            value: busCount / 8,
-                            backgroundColor: AppColors.surfaceAlt,
-                            valueColor:
-                                const AlwaysStoppedAnimation(AppColors.primary),
-                          ),
+            for (final v in vendors)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(v.name, style: textTheme.bodyMedium)),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: SizedBox(
+                        width: 120,
+                        height: 8,
+                        child: LinearProgressIndicator(
+                          value: v.bookings / maxBookings,
+                          backgroundColor: AppColors.surfaceAlt,
+                          valueColor: const AlwaysStoppedAnimation(AppColors.primary),
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Text('$busCount', style: textTheme.labelMedium),
-                    ],
-                  ),
-                );
-              }),
-            ],
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text('${v.bookings}', style: textTheme.labelMedium),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -120,22 +121,22 @@ class ReportsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _filterChip(BuildContext context, String label,
-      {required bool selected}) {
+  Widget _filterChip(BuildContext context, ReportPeriod period) {
     final textTheme = Theme.of(context).textTheme;
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
-      decoration: BoxDecoration(
-        color: selected ? AppColors.primary : AppColors.surface,
-        borderRadius: AppRadius.controlRadius,
-        border:
-            Border.all(color: selected ? AppColors.primary : AppColors.border),
-      ),
-      child: Text(
-        label,
-        style: textTheme.labelMedium?.copyWith(
-            color: selected ? AppColors.onPrimary : AppColors.textPrimary),
+    final selected = period == _period;
+    return GestureDetector(
+      onTap: () => setState(() => _period = period),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : AppColors.surface,
+          borderRadius: AppRadius.controlRadius,
+          border: Border.all(color: selected ? AppColors.primary : AppColors.border),
+        ),
+        child: Text(
+          period.label,
+          style: textTheme.labelMedium?.copyWith(color: selected ? AppColors.onPrimary : AppColors.textPrimary),
+        ),
       ),
     );
   }

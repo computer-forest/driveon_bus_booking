@@ -43,7 +43,10 @@ class _AuthGateState extends ConsumerState<AuthGate> with WidgetsBindingObserver
   Future<void> _lockIfNeeded() async {
     final user = await ref.read(authRepositoryProvider).authState().first;
     final enabled = await ref.read(secureStoreProvider).read(StoreKeys.biometricEnabled) == 'true';
-    if (!mounted || _locked) return;
+    if (!mounted) return;
+    // A person who was already signed in when the app opened gets their pushes too.
+    if (user != null && user.onboarded) ref.read(pushServiceProvider).register(user.id);
+    if (_locked) return;
     if (user != null && user.onboarded && enabled) setState(() => _locked = true);
   }
 
@@ -60,8 +63,11 @@ class _AuthGateState extends ConsumerState<AuthGate> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AsyncValue<AppUser?>>(authStateProvider, (_, next) {
-      if (next.value == null && _locked) setState(() => _locked = false);
+    ref.listen<AsyncValue<AppUser?>>(authStateProvider, (prev, next) {
+      final user = next.value;
+      if (user == null && _locked) setState(() => _locked = false);
+      // Once someone has finished signing in, this phone can receive their pushes.
+      if (user != null && user.onboarded) ref.read(pushServiceProvider).register(user.id);
     });
     return Stack(
       children: [

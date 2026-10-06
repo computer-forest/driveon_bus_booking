@@ -459,7 +459,7 @@
       "name": "Booking confirmed",
       "channel": "Push + Email",
       "trigger": "On advance/full payment recorded",
-      "preview": "Your bus is confirmed! MH-04-BT-7781, driver Suresh Patil...",
+      "preview": "Your bus is confirmed! {bus}, driver {driver}. Booking {reference}.",
       "updatedBy": "system:seed",
       "updatedAt": {
         "__ts": "2026-09-14T05:15:00.000Z"
@@ -469,7 +469,7 @@
       "name": "Cost confirmed",
       "channel": "Push",
       "trigger": "On Admin recording confirmed cost",
-      "preview": "Total fare for your trip is ₹18,000. Advance due: ₹4,500.",
+      "preview": "Total fare for your {route} trip is {fare}. Advance due: {advance}.",
       "updatedBy": "system:seed",
       "updatedAt": {
         "__ts": "2026-09-14T05:15:00.000Z"
@@ -479,7 +479,7 @@
       "name": "Bus reallocated",
       "channel": "Push + Email",
       "trigger": "On Admin reallocation",
-      "preview": "Your bus has changed to MH-04-CT-9902. New driver...",
+      "preview": "Your bus has changed to {bus}. Driver: {driver}. Booking {reference}.",
       "updatedBy": "system:seed",
       "updatedAt": {
         "__ts": "2026-09-14T05:15:00.000Z"
@@ -489,7 +489,7 @@
       "name": "Hold about to expire",
       "channel": "Push (Admin)",
       "trigger": "5 minutes before hold expiry",
-      "preview": "CB-20260914-0472 hold expires in 5 minutes.",
+      "preview": "{reference} hold expires in {minutes} minutes.",
       "updatedBy": "system:seed",
       "updatedAt": {
         "__ts": "2026-09-14T05:15:00.000Z"

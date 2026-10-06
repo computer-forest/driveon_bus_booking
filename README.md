@@ -228,3 +228,36 @@ Tests: `cd functions && npm test` (availability rules),
 `cd rules-tests && npm test` (security rules, 25) and `npm run e2e` (27, in the
 emulators: includes eight customers racing for one bus, the full booking
 lifecycle, hold expiry, reallocation and cancellation).
+
+## Notifications, cancellations, account deletion, reports (Stage 5-6)
+
+**Notifications.** `functions/src/bookingEvents.ts` turns each booking change
+into an in-app notification (`notifications/{eventId}_{uid}`) and an FCM push:
+hold created, cost confirmed, confirmed, bus changed, trip started/completed,
+settled, hold expiring (5 minutes before) and expired, cancelled, cancellation
+declined. Staff are told about new requests, holds about to lapse and
+cancellation requests. The document id comes from the triggering event, so a
+trigger delivered twice sends one notification. A failed push never blocks the
+booking change. Message wording comes from the four staff-editable templates
+(`tpl-cost`, `tpl-confirmed`, `tpl-realloc`, `tpl-hold`) using placeholders
+`{reference} {route} {bus} {driver} {fare} {advance} {minutes}`; text without a
+placeholder falls back to the built-in wording. Phones register under
+`users/{uid}/devices/{token}` (Android works now; iPhones need an Apple
+Developer account and push entitlements). Email is not built.
+
+**Cancellations.** A customer asks; staff see it in *Cancellation requests* and
+either approve (cancel, release the bus, record a refund up to what was paid) or
+decline with a note the customer sees. Both are `bookingAction` steps.
+
+**Account deletion** (`deleteAccount`): refused while any booking is in
+progress; otherwise bookings are anonymised (name, phone, landmark, link to the
+person removed) but kept with their payments; ratings, cancellation requests
+and search logs lose their link; profile, recent searches, devices and
+notifications are deleted; then the login.
+
+**Reports** are computed in the app from the real bookings, payments, buses,
+vendors and failed-search log (`lib/data/reports.dart`, unit-tested), for
+today / the last 7 days / the last 30 days.
+
+Tests now: `cd rules-tests && npm test` (29 rules) and `npm run e2e` (39,
+including notifications, hold warnings, refunds and account deletion).

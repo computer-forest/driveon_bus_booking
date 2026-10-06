@@ -5,7 +5,9 @@ import '../features/auth/data/auth_repository.dart';
 import '../features/auth/data/biometric_service.dart';
 import '../features/auth/data/msg91_otp_service.dart';
 import '../features/auth/data/secure_store.dart';
+import '../features/notifications/push_service.dart';
 import 'mock_data.dart';
+import 'reports.dart';
 import 'models.dart';
 import 'repositories/mock_repositories.dart';
 import 'repositories/repositories.dart';
@@ -69,6 +71,10 @@ final tokenVerifierProvider = Provider<TokenVerifier>((ref) => const LocalTokenV
 final biometricSettingsProvider = Provider<BiometricSettings>(
     (ref) => BiometricSettings(ref.watch(secureStoreProvider), ref.watch(biometricServiceProvider)));
 
+/// Registers this phone for push notifications. Off until main.dart turns it
+/// on, so tests and demo mode never touch the messaging plugin.
+final pushServiceProvider = Provider<PushService>((ref) => const NoopPushService());
+
 final authRepositoryProvider = Provider<AuthRepository>((ref) => MockAuthRepository(
       ref.watch(mockBackendProvider),
       store: ref.watch(secureStoreProvider),
@@ -113,20 +119,38 @@ final recentLocationsProvider =
     StreamProvider<List<LocationEntry>>((ref) => ref.watch(locationRepositoryProvider).watchRecent());
 final templatesProvider =
     StreamProvider<List<MessageTemplate>>((ref) => ref.watch(templateRepositoryProvider).watchAll());
+final cancellationsProvider =
+    StreamProvider<List<CancellationRequest>>((ref) => ref.watch(cancellationRepositoryProvider).watchAll());
 final auditLogProvider = StreamProvider<List<AuditEntry>>((ref) => ref.watch(auditRepositoryProvider).watchAll());
 final notificationsProvider =
     StreamProvider<List<AppNotification>>((ref) => ref.watch(notificationRepositoryProvider).watchAll());
 final faqsProvider = StreamProvider<List<FaqItem>>((ref) => ref.watch(contentRepositoryProvider).watchFaqs());
 final packagesProvider =
     StreamProvider<List<PackageLocation>>((ref) => ref.watch(packageRepositoryProvider).watchAll());
-final reportMetricsProvider =
-    StreamProvider<List<ReportMetric>>((ref) => ref.watch(reportRepositoryProvider).watchMetrics());
+final allPaymentsProvider = StreamProvider<List<Payment>>((ref) => ref.watch(paymentRepositoryProvider).watchAll());
+final searchMissesProvider =
+    StreamProvider<List<DateTime>>((ref) => ref.watch(reportRepositoryProvider).watchSearchMisses());
 final appConfigProvider = StreamProvider<AppConfig>((ref) => ref.watch(configRepositoryProvider).watch());
 final authStateProvider = StreamProvider<AppUser?>((ref) => ref.watch(authRepositoryProvider).authState());
 
 final paymentsForBookingProvider = StreamProvider.family<List<Payment>, String>(
   (ref, bookingId) => ref.watch(paymentRepositoryProvider).watchForBooking(bookingId),
 );
+
+/// The staff reports for [period], worked out from the real records. Empty
+/// figures while those are still loading.
+final reportProvider = Provider.family<Report, ReportPeriod>((ref, period) => buildReport(
+      period: period,
+      now: ref.watch(clockProvider)(),
+      bookings: ref.watch(bookingsProvider).items,
+      payments: ref.watch(allPaymentsProvider).items,
+      buses: ref.watch(busesProvider).items,
+      vendors: ref.watch(vendorsProvider).items,
+      searchMisses: ref.watch(searchMissesProvider).items,
+    ));
+
+/// The headline figures for today, shown on the staff dashboard.
+final reportMetricsProvider = Provider<List<ReportMetric>>((ref) => ref.watch(reportProvider(ReportPeriod.today)).metrics);
 
 // --- conveniences --------------------------------------------------------
 

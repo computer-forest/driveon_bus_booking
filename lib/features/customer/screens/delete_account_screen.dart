@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../data/providers.dart';
+import '../../../data/repositories/repositories.dart';
 
 /// AUTH-09: customer-initiated account deletion. Personal data is erased
 /// and past bookings anonymised; financial records are retained.
@@ -16,6 +17,20 @@ class DeleteAccountScreen extends ConsumerStatefulWidget {
 
 class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
   bool _understood = false;
+  bool _deleting = false;
+
+  Future<void> _delete() async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _deleting = true);
+    try {
+      await ref.read(authRepositoryProvider).deleteAccount();
+    } on AuthException catch (e) {
+      // e.g. "You have bookings in progress..." — the account is untouched.
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _deleting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +85,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: _understood ? () => ref.read(authRepositoryProvider).deleteAccount() : null,
+                  onPressed: _understood && !_deleting ? _delete : null,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.urgent,
                     side: const BorderSide(color: AppColors.urgent),
