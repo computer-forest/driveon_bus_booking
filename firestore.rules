@@ -165,6 +165,55 @@ service cloud.firestore {
         && request.resource.data.at == request.time;
     }
 
+    // --- bookings and money (Stage 4/5) --------------------------------
+    // Nothing here is ever written from the app: holds, stage changes and
+    // payments go through Cloud Functions, which check availability and
+    // which stage a step is legal from.
+
+    function ownsBooking(bookingId) {
+      return signedIn()
+        && get(/databases/$(database)/documents/bookings/$(bookingId)).data.customerId == request.auth.uid;
+    }
+
+    // A customer sees their own bookings; staff see all. (Customers cannot
+    // see each other's, which is why search runs on the server.)
+    match /bookings/{id} {
+      allow read: if signedIn() && (isAdmin() || resource.data.customerId == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /payments/{id} {
+      allow read: if isAdmin() || ownsBooking(resource.data.bookingId);
+      allow write: if false;
+    }
+
+    match /ratings/{id} {
+      allow read: if isAdmin();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['bookingId', 'bus', 'driver', 'overall', 'feedback', 'customerId', 'createdAt'])
+        && request.resource.data.customerId == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && ownsBooking(request.resource.data.bookingId)
+        && request.resource.data.overall is int
+        && request.resource.data.overall >= 1 && request.resource.data.overall <= 5
+        && validText(request.resource.data.get('feedback', ''), 1000);
+      allow update, delete: if false;
+    }
+
+    match /cancellations/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.requestedBy == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['bookingId', 'requestedBy', 'reason', 'status', 'createdAt'])
+        && request.resource.data.requestedBy == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time
+        && ownsBooking(request.resource.data.bookingId)
+        && validText(request.resource.data.get('reason', ''), 500);
+      allow update, delete: if false;
+    }
+
+    // busLocks, counters and searchMisses are the server's own bookkeeping.
+
     match /{document=**} {
       allow read, write: if false;
     }

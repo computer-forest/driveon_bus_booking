@@ -263,4 +263,61 @@ class Codec {
         detail: m['detail'] as String? ?? '',
         at: (m['at'] as DateTime?) ?? DateTime.fromMillisecondsSinceEpoch(0),
       );
+
+  // --- bookings, payments, ratings, cancellations -------------------------
+  // Written only by the server (Cloud Functions); the app reads them.
+
+  static Booking bookingFromMap(String id, Map<String, dynamic> m) => Booking(
+        id: id,
+        reference: m['reference'] as String? ?? '',
+        customerId: _str(m['customerId']),
+        customerName: m['customerName'] as String? ?? '',
+        customerPhone: m['customerPhone'] as String? ?? '',
+        route: m['route'] as String? ?? '',
+        capacity: (m['capacity'] as num?)?.toInt() ?? 0,
+        busId: m['busId'] as String? ?? '',
+        busReg: m['busReg'] as String? ?? '',
+        start: m['start'] as DateTime,
+        end: m['end'] as DateTime,
+        totalFare: (m['totalFare'] as num?)?.toInt() ?? 0,
+        amountPaid: (m['amountPaid'] as num?)?.toInt() ?? 0,
+        stage: BookingStage.values.asNameMap()[m['stage']] ?? BookingStage.requested,
+        holdExpiresAt: m['holdExpiresAt'] as DateTime?,
+        pickupLandmark: _str(m['pickupLandmark']),
+      );
+
+  static Payment paymentFromMap(String id, Map<String, dynamic> m) => Payment(
+        id: id,
+        bookingId: m['bookingId'] as String? ?? '',
+        kind: PaymentKind.values.asNameMap()[m['kind']] ?? PaymentKind.advance,
+        amount: (m['amount'] as num?)?.toInt() ?? 0,
+        mode: m['mode'] as String? ?? '',
+        reference: m['reference'] as String? ?? '',
+        receivedOn: (m['receivedOn'] as DateTime?) ?? DateTime.fromMillisecondsSinceEpoch(0),
+        recordedBy: m['recordedBy'] as String? ?? '',
+      );
+
+  static Map<String, dynamic> ratingToMap(Rating r) => {
+        'bookingId': r.bookingId,
+        'bus': r.bus,
+        'driver': r.driver,
+        'overall': r.overall,
+        'feedback': r.feedback,
+      };
+
+  static Map<String, dynamic> cancellationToMap(CancellationRequest c) => {
+        'bookingId': c.bookingId,
+        'requestedBy': c.requestedBy,
+        'reason': c.reason,
+        'status': c.status.name,
+      };
+
+  static CancellationRequest cancellationFromMap(String id, Map<String, dynamic> m) => CancellationRequest(
+        id: id,
+        bookingId: m['bookingId'] as String? ?? '',
+        requestedBy: m['requestedBy'] as String? ?? '',
+        reason: m['reason'] as String? ?? '',
+        status: CancellationStatus.values.asNameMap()[m['status']] ?? CancellationStatus.pending,
+        createdAt: (m['createdAt'] as DateTime?) ?? DateTime.fromMillisecondsSinceEpoch(0),
+      );
 }

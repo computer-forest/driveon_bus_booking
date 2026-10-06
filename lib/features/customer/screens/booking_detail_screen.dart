@@ -40,6 +40,8 @@ class BookingDetailScreen extends ConsumerWidget {
         return 3;
       case BookingStage.completed:
       case BookingStage.settled:
+      case BookingStage.expired:
+      case BookingStage.cancelled:
         return 4;
     }
   }

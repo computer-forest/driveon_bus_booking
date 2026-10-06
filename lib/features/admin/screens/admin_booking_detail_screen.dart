@@ -4,12 +4,13 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/date_format.dart';
+import '../../../core/utils/guarded_write.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../core/widgets/stage_badge.dart';
-import '../../../data/ids.dart';
 import '../../../data/models.dart';
 import '../../../data/providers.dart';
+import '../../../data/repositories/repositories.dart';
 import 'cancel_refund_screen.dart';
 import 'reallocation_picker_screen.dart';
 
@@ -57,61 +58,38 @@ class _AdminBookingDetailScreenState extends ConsumerState<AdminBookingDetailScr
     return live.isEmpty ? widget.booking : live.first;
   }
 
-  Future<void> _save(Booking next) => ref.read(bookingRepositoryProvider).upsert(next);
+  BookingRepository get _bookings => ref.read(bookingRepositoryProvider);
+
+  void _note(String message) {
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   /// Writes the fare and moves a fresh request to "cost confirmed".
   Future<void> _confirmCost() async {
-    final b = _current;
     final fare = _rupees(_totalFare.text);
-    await _save(b.copyWith(
-      totalFare: fare,
-      stage: b.stage == BookingStage.requested ? BookingStage.costConfirmed : b.stage,
-    ));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cost saved.')));
+    final saved = await guardedWrite(context, () => _bookings.confirmCost(widget.booking.id, fare));
+    if (saved) _note('Cost saved.');
   }
 
   /// Records the advance the customer paid outside the app and confirms.
   Future<void> _recordAdvanceAndConfirm() async {
-    final b = _current;
-    final amount = _rupees(_paymentAmount.text);
-    final admin = ref.read(authStateProvider).value;
-    if (amount > 0) {
-      await ref.read(paymentRepositoryProvider).record(
-            Payment(
-              id: newId('pay'),
-              bookingId: b.id,
-              kind: PaymentKind.advance,
-              amount: amount,
-              mode: _paymentMode.text.trim().isEmpty ? 'UPI' : _paymentMode.text.trim(),
-              reference: _paymentReference.text.trim(),
-              receivedOn: ref.read(clockProvider)(),
-              recordedBy: 'Admin · ${admin?.name ?? 'Staff'}',
-            ),
-          );
-    }
-    await _save(b.copyWith(amountPaid: b.amountPaid + amount, stage: BookingStage.confirmed));
+    final mode = _paymentMode.text.trim();
+    await guardedWrite(
+      context,
+      () => _bookings.recordAdvance(
+        widget.booking.id,
+        amount: _rupees(_paymentAmount.text),
+        mode: mode.isEmpty ? 'UPI' : mode,
+        reference: _paymentReference.text.trim(),
+      ),
+    );
   }
 
   Future<void> _settle() async {
-    final b = _current;
-    final received = _rupees(_balanceReceived.text);
-    final admin = ref.read(authStateProvider).value;
-    if (received > 0) {
-      await ref.read(paymentRepositoryProvider).record(
-            Payment(
-              id: newId('pay'),
-              bookingId: b.id,
-              kind: PaymentKind.balance,
-              amount: received,
-              mode: 'Cash',
-              reference: '',
-              receivedOn: ref.read(clockProvider)(),
-              recordedBy: 'Admin · ${admin?.name ?? 'Staff'}',
-            ),
-          );
-    }
-    await _save(b.copyWith(amountPaid: b.amountPaid + received, stage: BookingStage.settled));
+    await guardedWrite(
+      context,
+      () => _bookings.recordBalance(widget.booking.id, amount: _rupees(_balanceReceived.text)),
+    );
   }
 
   Future<void> _reallocate() async {
@@ -122,11 +100,8 @@ class _AdminBookingDetailScreenState extends ConsumerState<AdminBookingDetailScr
       ),
     );
     if (newBus == null || !mounted) return;
-    await _save(b.copyWith(busId: newBus.id, busReg: newBus.regNumber));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Moved to ${newBus.regNumber}.')),
-    );
+    final moved = await guardedWrite(context, () => _bookings.reallocate(b.id, newBus.id));
+    if (moved) _note('Moved to ${newBus.regNumber}.');
   }
 
   Future<void> _cancel() async {
@@ -258,8 +233,9 @@ class _AdminBookingDetailScreenState extends ConsumerState<AdminBookingDetailScr
                     child: SecondaryButton(
                       label: 'Start trip',
                       icon: Icons.play_arrow_rounded,
-                      onPressed:
-                          stage == BookingStage.confirmed ? () => _save(booking.copyWith(stage: BookingStage.inTrip)) : null,
+                      onPressed: stage == BookingStage.confirmed
+                          ? () => guardedWrite(context, () => _bookings.startTrip(booking.id))
+                          : null,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
@@ -268,9 +244,9 @@ class _AdminBookingDetailScreenState extends ConsumerState<AdminBookingDetailScr
                       label: 'Complete trip',
                       icon: Icons.flag_rounded,
                       onPressed: stage == BookingStage.inTrip
-                          ? () {
+                          ? () async {
                               _balanceReceived.text = '${booking.balanceDue}';
-                              _save(booking.copyWith(stage: BookingStage.completed));
+                              await guardedWrite(context, () => _bookings.completeTrip(booking.id));
                             }
                           : null,
                     ),

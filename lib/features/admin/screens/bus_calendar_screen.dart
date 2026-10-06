@@ -251,6 +251,8 @@ class _BusCalendarScreenState extends ConsumerState<BusCalendarScreen> {
         return (AppColors.primary, AppColors.primary, AppColors.onPrimary);
       case BookingStage.completed:
       case BookingStage.settled:
+      case BookingStage.expired:
+      case BookingStage.cancelled:
         return (AppColors.surfaceAlt, AppColors.border, AppColors.textSecondary);
     }
   }

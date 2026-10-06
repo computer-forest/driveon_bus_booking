@@ -112,7 +112,20 @@ class LedgerEntry {
   final String? note;
 }
 
-enum BookingStage { requested, costConfirmed, confirmed, inTrip, completed, settled }
+enum BookingStage {
+  requested,
+  costConfirmed,
+  confirmed,
+  inTrip,
+  completed,
+  settled,
+
+  /// A hold that ran out before staff confirmed it. The bus was released.
+  expired,
+
+  /// Cancelled by staff. The bus was released.
+  cancelled,
+}
 
 /// One charter, from the moment the customer holds a bus through to
 /// settlement. The queue shows the holds, the calendar shows the rest.
@@ -161,6 +174,9 @@ class Booking {
 
   int get balanceDue => totalFare - amountPaid;
   bool get isHold => stage == BookingStage.requested;
+
+  /// Whether this booking still takes its bus: not cancelled or expired.
+  bool get occupiesBus => stage != BookingStage.expired && stage != BookingStage.cancelled;
 
   /// Whole seconds left on the hold at [now], never negative.
   int holdSecondsLeft(DateTime now) {

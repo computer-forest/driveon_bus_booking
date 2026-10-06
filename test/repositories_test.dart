@@ -1,3 +1,4 @@
+import 'package:charter_booking_ui/data/availability.dart';
 import 'package:charter_booking_ui/features/auth/data/secure_store.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_test/flutter_test.dart';
@@ -43,7 +44,6 @@ void main() {
         bus: bus,
         criteria: criteria(tuesday, 8, 12),
         customer: customer,
-        holdFor: const Duration(minutes: 30),
       );
 
       expect(hold.stage, BookingStage.requested);
@@ -73,7 +73,6 @@ void main() {
         bus: bus,
         criteria: withLandmark,
         customer: customer,
-        holdFor: const Duration(minutes: 30),
       );
       expect(hold.pickupLandmark, 'near Viviana Mall');
 
@@ -81,7 +80,6 @@ void main() {
         bus: MockData.buses.firstWhere((b) => b.id == 'bus-1120'),
         criteria: criteria(tuesday, 8, 12),
         customer: customer,
-        holdFor: const Duration(minutes: 30),
       );
       expect(plain.pickupLandmark, isNull);
     });
@@ -91,13 +89,11 @@ void main() {
         bus: bus,
         criteria: criteria(tuesday, 8, 10),
         customer: customer,
-        holdFor: const Duration(minutes: 30),
       );
       final second = await bookings.createHold(
         bus: bus,
         criteria: criteria(tuesday, 11, 13),
         customer: customer,
-        holdFor: const Duration(minutes: 30),
       );
       expect(first.reference, isNot(second.reference));
       expect(first.reference, matches(RegExp(r'^CB-20260914-\d{4}$')));
@@ -108,7 +104,6 @@ void main() {
         bus: bus,
         criteria: criteria(tuesday, 8, 12),
         customer: customer,
-        holdFor: const Duration(minutes: 30),
       );
 
       await expectLater(
@@ -116,7 +111,6 @@ void main() {
           bus: bus,
           criteria: criteria(tuesday, 10, 14),
           customer: const AppUser(id: 'usr-2', role: UserRole.customer, name: 'Bala', phone: '98200 00002'),
-          holdFor: const Duration(minutes: 30),
         ),
         throwsA(isA<BusUnavailableException>()),
       );
@@ -132,7 +126,6 @@ void main() {
                 bus: bus,
                 criteria: criteria(tuesday, 8, 12),
                 customer: AppUser(id: 'usr-$i', role: UserRole.customer, phone: '9820000000$i'),
-                holdFor: const Duration(minutes: 30),
               )
               .then<Object>((b) => b, onError: (Object e) => e),
         ),
@@ -148,7 +141,6 @@ void main() {
           bus: bus,
           criteria: criteria(tuesday, 5, 8), // opens at 6AM
           customer: customer,
-          holdFor: const Duration(minutes: 30),
         ),
         throwsA(isA<BusUnavailableException>()),
       );
@@ -161,7 +153,6 @@ void main() {
           bus: bt,
           criteria: criteria(DateTime(2026, 9, 21), 15, 20),
           customer: customer,
-          holdFor: const Duration(minutes: 30),
         ),
         throwsA(isA<BusUnavailableException>()),
       );
@@ -350,6 +341,57 @@ void main() {
       expect(AppDateFormat.dayAndTime(DateTime(2026, 9, 14, 10, 42), now), 'Today, 10:42 AM');
       expect(AppDateFormat.dayAndTime(DateTime(2026, 9, 13, 18, 2), now), 'Yesterday, 06:02 PM');
       expect(AppDateFormat.dayAndTime(DateTime(2026, 9, 12, 15, 40), now), '12 Sep, 03:40 PM');
+    });
+  });
+
+  group('booking lifecycle (demo mode follows the server rules)', () {
+    MockBackend backend() => MockBackend();
+
+    test('a request moves through every stage in order and records the money', () async {
+      final b = backend();
+      final repo = MockBookingRepository(b);
+      const id = 'bk-0474'; // seeded request on bus-1120
+
+      await expectLater(repo.startTrip(id), throwsA(isA<BookingException>()));
+      await expectLater(repo.recordAdvance(id, amount: 100), throwsA(isA<BookingException>().having((e) => e.message, 'm', 'Set the cost first.')));
+
+      await repo.confirmCost(id, 24000);
+      expect(b.bookings.items.firstWhere((e) => e.id == id).stage, BookingStage.costConfirmed);
+      await repo.recordAdvance(id, amount: 6000, reference: 'U1');
+      expect(b.bookings.items.firstWhere((e) => e.id == id).stage, BookingStage.confirmed);
+      await repo.startTrip(id);
+      await repo.completeTrip(id);
+      await repo.recordBalance(id, amount: 18000);
+
+      final done = b.bookings.items.firstWhere((e) => e.id == id);
+      expect(done.stage, BookingStage.settled);
+      expect(done.amountPaid, 24000);
+      expect(b.payments.items.where((p) => p.bookingId == id).map((p) => p.amount), [6000, 18000]);
+      await expectLater(repo.cancel(id), throwsA(isA<BookingException>()));
+    });
+
+    test('cancelling releases the bus', () async {
+      final b = backend();
+      final repo = MockBookingRepository(b);
+      await repo.cancel('bk-0491'); // confirmed trip on bus-7781, 16 Sep
+      expect(b.bookings.items.firstWhere((e) => e.id == 'bk-0491').occupiesBus, isFalse);
+      final bus = b.buses.items.firstWhere((x) => x.id == 'bus-7781');
+      expect(
+        isBusFree(bus, DateTime(2026, 9, 16, 15), DateTime(2026, 9, 16, 20), bookings: b.bookings.items, blackouts: b.blackouts.items),
+        isTrue,
+      );
+    });
+
+    test('reallocation refuses a bus that cannot do the trip and accepts one that can', () async {
+      final b = backend();
+      final repo = MockBookingRepository(b);
+      // bus-9902 runs 06:00-17:00, so it cannot take a trip that returns at 20:00.
+      await expectLater(repo.reallocate('bk-0472', 'bus-9902'), throwsA(isA<BusUnavailableException>()));
+      expect(b.bookings.items.firstWhere((e) => e.id == 'bk-0472').busId, 'bus-7781');
+
+      // bus-1120 is free on the 16th.
+      await repo.reallocate('bk-0491', 'bus-1120');
+      expect(b.bookings.items.firstWhere((e) => e.id == 'bk-0491').busReg, 'MH-12-AK-1120');
     });
   });
 }

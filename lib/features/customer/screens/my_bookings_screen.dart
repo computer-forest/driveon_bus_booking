@@ -35,7 +35,10 @@ class _MyBookingsScreenState extends ConsumerState<MyBookingsScreen> {
       case 1:
         return stage == BookingStage.inTrip;
       default:
-        return stage == BookingStage.completed || stage == BookingStage.settled;
+        return stage == BookingStage.completed ||
+            stage == BookingStage.settled ||
+            stage == BookingStage.expired ||
+            stage == BookingStage.cancelled;
     }
   }
 

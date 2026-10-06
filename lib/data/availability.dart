@@ -22,7 +22,7 @@ List<Booking> bookingsFor(String busId, DateTime day, Iterable<Booking> bookings
   final from = dateOnly(day);
   final to = from.add(const Duration(days: 1));
   return bookings
-      .where((b) => b.busId == busId && b.start.isBefore(to) && from.isBefore(b.end))
+      .where((b) => b.occupiesBus && b.busId == busId && b.start.isBefore(to) && from.isBefore(b.end))
       .toList()
     ..sort((a, b) => a.start.compareTo(b.start));
 }
@@ -91,6 +91,7 @@ bool isBusFree(
   if (isBlackedOut(bus.id, start, end, blackouts)) return false;
 
   return !bookings.any((b) =>
+      b.occupiesBus &&
       b.busId == bus.id &&
       _overlaps(start, end, b.start.subtract(bufferBefore), b.end.add(bufferAfter)));
 }

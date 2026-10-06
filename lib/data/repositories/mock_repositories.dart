@@ -87,33 +87,24 @@ class MockDriverRepository implements DriverRepository {
 }
 
 class MockBookingRepository implements BookingRepository {
-  /// Bookings are still in memory (Stage 4 moves them to Firestore), but
-  /// blackouts already live wherever [blackouts] says, so a hold is checked
-  /// against the real ones.
-  MockBookingRepository(this._b, {BlackoutRepository? blackouts}) : _blackouts = blackouts;
+  MockBookingRepository(this._b);
   final MockBackend _b;
-  final BlackoutRepository? _blackouts;
 
   @override
   Stream<List<Booking>> watchAll() => _b.bookings.watch();
-
-  @override
-  Future<void> upsert(Booking booking) async => _b.bookings.upsert((e) => e.id == booking.id, booking);
 
   @override
   Future<Booking> createHold({
     required BusRecord bus,
     required SearchCriteria criteria,
     required AppUser customer,
-    required Duration holdFor,
   }) async {
-    final blackouts = await (_blackouts?.watchAll() ?? _b.blackouts.watch()).first;
     final free = isBusFree(
       bus,
       criteria.startsAt,
       criteria.endsAt,
       bookings: _b.bookings.items,
-      blackouts: blackouts,
+      blackouts: _b.blackouts.items,
     );
     if (!free) throw const BusUnavailableException();
 
@@ -138,12 +129,102 @@ class MockBookingRepository implements BookingRepository {
       totalFare: 0,
       amountPaid: 0,
       stage: BookingStage.requested,
-      holdExpiresAt: now.add(holdFor),
+      holdExpiresAt: now.add(_b.config.value.holdDuration),
       pickupLandmark: criteria.pickupLandmark.isEmpty ? null : criteria.pickupLandmark,
     );
     _b.bookings.add(booking);
     return booking;
   }
+
+  // The same stage rules the server enforces, so the demo mode behaves alike.
+
+  static const _editable = [BookingStage.requested, BookingStage.costConfirmed, BookingStage.confirmed];
+
+  Booking _get(String id, List<BookingStage> allowed, String what) {
+    final b = _b.bookings.items.where((e) => e.id == id).firstOrNull;
+    if (b == null) throw const BookingException('No such booking.');
+    if (!allowed.contains(b.stage)) {
+      throw BookingException('Cannot $what a booking that is ${b.stage.name}.');
+    }
+    return b;
+  }
+
+  void _put(Booking b) => _b.bookings.upsert((e) => e.id == b.id, b);
+
+  void _pay(Booking b, PaymentKind kind, int amount, String mode, String reference) {
+    if (amount <= 0) return;
+    _b.payments.add(Payment(
+      id: newId('pay'),
+      bookingId: b.id,
+      kind: kind,
+      amount: amount,
+      mode: mode,
+      reference: reference,
+      receivedOn: MockData.now,
+      recordedBy: 'Admin · Staff',
+    ));
+  }
+
+  @override
+  Future<void> confirmCost(String bookingId, int fare) async {
+    final b = _get(bookingId, _editable, 'set the cost of');
+    _put(b.copyWith(
+      totalFare: fare,
+      stage: b.stage == BookingStage.requested ? BookingStage.costConfirmed : b.stage,
+    ));
+  }
+
+  @override
+  Future<void> recordAdvance(String bookingId, {required int amount, String mode = 'UPI', String reference = ''}) async {
+    final b = _get(bookingId, [BookingStage.requested, BookingStage.costConfirmed], 'confirm');
+    if (b.totalFare <= 0) throw const BookingException('Set the cost first.');
+    _pay(b, PaymentKind.advance, amount, mode, reference);
+    _put(b.copyWith(amountPaid: b.amountPaid + amount, stage: BookingStage.confirmed));
+  }
+
+  @override
+  Future<void> startTrip(String bookingId) async =>
+      _put(_get(bookingId, [BookingStage.confirmed], 'start').copyWith(stage: BookingStage.inTrip));
+
+  @override
+  Future<void> completeTrip(String bookingId) async =>
+      _put(_get(bookingId, [BookingStage.inTrip], 'complete').copyWith(stage: BookingStage.completed));
+
+  @override
+  Future<void> recordBalance(String bookingId, {required int amount, String mode = 'Cash', String reference = ''}) async {
+    final b = _get(bookingId, [BookingStage.completed], 'settle');
+    _pay(b, PaymentKind.balance, amount, mode, reference);
+    _put(b.copyWith(amountPaid: b.amountPaid + amount, stage: BookingStage.settled));
+  }
+
+  @override
+  Future<void> reallocate(String bookingId, String newBusId) async {
+    final b = _get(bookingId, _editable, 'move');
+    final bus = _b.buses.items.where((e) => e.id == newBusId).firstOrNull;
+    if (bus == null) throw const BookingException('That bus does not exist.');
+    final others = _b.bookings.items.where((e) => e.id != b.id);
+    if (!isBusFree(bus, b.start, b.end, bookings: others, blackouts: _b.blackouts.items)) {
+      throw const BusUnavailableException();
+    }
+    _put(b.copyWith(busId: bus.id, busReg: bus.regNumber));
+  }
+
+  @override
+  Future<void> cancel(String bookingId, {String reason = ''}) async =>
+      _put(_get(bookingId, _editable, 'cancel').copyWith(stage: BookingStage.cancelled));
+}
+
+class MockSearchRepository implements SearchRepository {
+  MockSearchRepository(this._b);
+  final MockBackend _b;
+
+  @override
+  Future<List<BusRecord>> availableBuses(SearchCriteria criteria) async => searchBuses(
+        criteria,
+        buses: _b.buses.items,
+        bookings: _b.bookings.items,
+        blackouts: _b.blackouts.items,
+      );
 }
 
 class MockBlackoutRepository implements BlackoutRepository {
@@ -259,8 +340,6 @@ class MockPaymentRepository implements PaymentRepository {
   Stream<List<Payment>> watchForBooking(String bookingId) =>
       _b.payments.watch().map((all) => all.where((p) => p.bookingId == bookingId).toList());
 
-  @override
-  Future<void> record(Payment payment) async => _b.payments.add(payment);
 }
 
 class MockRatingRepository implements RatingRepository {

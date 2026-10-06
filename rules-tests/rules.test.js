@@ -1,5 +1,6 @@
 // Run with `npm test` (starts the Firestore emulator; needs Java).
 const { test, before, after, beforeEach } = require("node:test");
+const assert = require("node:assert");
 const fs = require("node:fs");
 const path = require("node:path");
 const {
@@ -89,7 +90,7 @@ test("signed-out visitors can read nothing", async () => {
 
 test("collections that are not open yet stay closed to customers and admins alike", async () => {
   for (const db of [customer("cust_919820011223"), admin()]) {
-    for (const name of ["bookings", "payments", "ratings", "cancellations", "notifications"]) {
+    for (const name of ["notifications", "busLocks", "counters", "searchMisses"]) {
       await assertFails(getDocs(collection(db, name)));
       await assertFails(setDoc(doc(db, `${name}/x`), { a: 1 }));
     }
@@ -209,4 +210,78 @@ test("a customer keeps their own recent searches and nobody else's", async () =>
   await assertSucceeds(getDoc(doc(db, "users/cust_919820011223/recents/loc-1")));
   await assertFails(getDoc(doc(customer("cust_919999999999"), "users/cust_919820011223/recents/loc-1")));
   await assertFails(setDoc(doc(db, "users/cust_919820011223/recents/loc-2"), { at: serverTimestamp(), extra: 1 }));
+});
+
+// --- Stage 4/5: bookings and money ---------------------------------------
+
+const booking = (customerId) => ({
+  reference: "CB-20261010-0001", customerId, customerName: "Rohan", customerPhone: "+91 98200 11223",
+  route: "A -> B", capacity: 20, busId: "bus-1", busReg: "X", totalFare: 0, amountPaid: 0, stage: "requested",
+  start: new Date("2026-10-10T10:00:00Z"), end: new Date("2026-10-10T15:00:00Z"),
+});
+
+test("a customer reads only their own bookings; staff read all", async () => {
+  await seedDoc("bookings/bk-1", booking("cust_919820011223"));
+  await seedDoc("bookings/bk-2", booking("cust_919999999999"));
+  const me = customer("cust_919820011223");
+  await assertSucceeds(getDoc(doc(me, "bookings/bk-1")));
+  await assertFails(getDoc(doc(me, "bookings/bk-2")));
+  await assertSucceeds(getDoc(doc(admin(), "bookings/bk-2")));
+  await assertFails(getDoc(doc(anon(), "bookings/bk-1")));
+});
+
+test("the customer's own bookings query works, a query for everyone's does not", async () => {
+  await seedDoc("bookings/bk-1", booking("cust_919820011223"));
+  await seedDoc("bookings/bk-2", booking("cust_919999999999"));
+  const me = customer("cust_919820011223");
+  const { query, where } = require("firebase/firestore");
+  const mine = await assertSucceeds(getDocs(query(collection(me, "bookings"), where("customerId", "==", "cust_919820011223"))));
+  assert.equal(mine.size, 1);
+  await assertFails(getDocs(collection(me, "bookings")));
+  await assertSucceeds(getDocs(collection(admin(), "bookings")));
+});
+
+test("nobody can write a booking from the app, not even staff or the owner", async () => {
+  await seedDoc("bookings/bk-1", booking("cust_919820011223"));
+  for (const db of [customer("cust_919820011223"), admin()]) {
+    await assertFails(setDoc(doc(db, "bookings/bk-new"), booking("cust_919820011223")));
+    await assertFails(updateDoc(doc(db, "bookings/bk-1"), { stage: "confirmed" }));
+    await assertFails(deleteDoc(doc(db, "bookings/bk-1")));
+  }
+});
+
+test("payments are visible to staff and to the customer who owns the booking, and never writable", async () => {
+  await seedDoc("bookings/bk-1", booking("cust_919820011223"));
+  await seedDoc("payments/p1", { bookingId: "bk-1", kind: "advance", amount: 4500 });
+  await assertSucceeds(getDoc(doc(customer("cust_919820011223"), "payments/p1")));
+  await assertFails(getDoc(doc(customer("cust_919999999999"), "payments/p1")));
+  await assertSucceeds(getDoc(doc(admin(), "payments/p1")));
+  await assertFails(setDoc(doc(admin(), "payments/p2"), { bookingId: "bk-1", kind: "advance", amount: 1 }));
+  await assertFails(setDoc(doc(customer("cust_919820011223"), "payments/p2"), { bookingId: "bk-1", kind: "advance", amount: 1 }));
+});
+
+test("a customer can rate only their own booking, once stamped honestly", async () => {
+  await seedDoc("bookings/bk-1", booking("cust_919820011223"));
+  const rating = (extra = {}) => ({ bookingId: "bk-1", bus: 5, driver: 4, overall: 5, feedback: "Great", customerId: "cust_919820011223", createdAt: serverTimestamp(), ...extra });
+  await assertSucceeds(setDoc(doc(customer("cust_919820011223"), "ratings/r1"), rating()));
+  await assertFails(setDoc(doc(customer("cust_919999999999"), "ratings/r2"), rating({ customerId: "cust_919999999999" }))); // not their booking
+  await assertFails(setDoc(doc(customer("cust_919820011223"), "ratings/r3"), rating({ overall: 9 })));
+  await assertFails(setDoc(doc(customer("cust_919820011223"), "ratings/r4"), rating({ customerId: "cust_919999999999" })));
+  await assertFails(setDoc(doc(customer("cust_919820011223"), "ratings/r5"), rating({ extra: 1 })));
+  await assertFails(updateDoc(doc(customer("cust_919820011223"), "ratings/r1"), { overall: 1 }));
+  await assertFails(getDoc(doc(customer("cust_919820011223"), "ratings/r1"))); // staff read the ratings
+  await assertSucceeds(getDoc(doc(admin(), "ratings/r1")));
+});
+
+test("a customer can ask to cancel their own booking, as pending, and see only their requests", async () => {
+  await seedDoc("bookings/bk-1", booking("cust_919820011223"));
+  const req = (extra = {}) => ({ bookingId: "bk-1", requestedBy: "cust_919820011223", reason: "Plans changed", status: "pending", createdAt: serverTimestamp(), ...extra });
+  const me = customer("cust_919820011223");
+  await assertSucceeds(setDoc(doc(me, "cancellations/c1"), req()));
+  await assertFails(setDoc(doc(me, "cancellations/c2"), req({ status: "approved" })));
+  await assertFails(setDoc(doc(customer("cust_919999999999"), "cancellations/c3"), req({ requestedBy: "cust_919999999999" })));
+  await assertSucceeds(getDoc(doc(me, "cancellations/c1")));
+  await assertFails(getDoc(doc(customer("cust_919999999999"), "cancellations/c1")));
+  await assertSucceeds(getDoc(doc(admin(), "cancellations/c1")));
+  await assertFails(updateDoc(doc(admin(), "cancellations/c1"), { status: "approved" })); // decided by a staff action, not a client write
 });

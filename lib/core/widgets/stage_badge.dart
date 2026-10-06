@@ -18,6 +18,10 @@ import 'status_badge.dart';
       return ('Completed', StatusTone.warning);
     case BookingStage.settled:
       return ('Settled', StatusTone.success);
+    case BookingStage.expired:
+      return ('Expired', StatusTone.neutral);
+    case BookingStage.cancelled:
+      return ('Cancelled', StatusTone.neutral);
   }
 }
 

@@ -31,20 +31,54 @@ class BusUnavailableException implements Exception {
   String toString() => 'That bus is no longer available for this trip.';
 }
 
+/// Any booking operation the server refused, worded for the person using
+/// the app (a lapsed hold, a stage that does not allow the step, a limit).
+class BookingException implements Exception {
+  const BookingException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 abstract class BookingRepository {
+  /// A customer's own bookings, or every booking for staff.
   Stream<List<Booking>> watchAll();
-  Future<void> upsert(Booking booking);
 
   /// Holds [bus] for [criteria] on behalf of [customer]. The backend
   /// re-checks availability and creates the hold in one step, so two
   /// customers cannot hold the same bus; throws [BusUnavailableException]
-  /// if it was taken in the meantime.
+  /// if it was taken in the meantime. The hold length comes from the
+  /// server's configuration, not from the app.
   Future<Booking> createHold({
     required BusRecord bus,
     required SearchCriteria criteria,
     required AppUser customer,
-    required Duration holdFor,
   });
+
+  // Staff actions. The backend checks each step is legal from the booking's
+  // current stage and throws [BookingException] when it is not.
+
+  /// Sets the fare; a fresh request becomes "cost confirmed".
+  Future<void> confirmCost(String bookingId, int fare);
+
+  /// Records the advance received outside the app and confirms the booking.
+  Future<void> recordAdvance(String bookingId, {required int amount, String mode = 'UPI', String reference = ''});
+  Future<void> startTrip(String bookingId);
+  Future<void> completeTrip(String bookingId);
+
+  /// Records the balance received and settles the booking.
+  Future<void> recordBalance(String bookingId, {required int amount, String mode = 'Cash', String reference = ''});
+
+  /// Moves the booking to [newBusId], same dates, if that bus is free.
+  Future<void> reallocate(String bookingId, String newBusId);
+  Future<void> cancel(String bookingId, {String reason = ''});
+}
+
+/// Which buses can be chartered for a trip. With a live backend the server
+/// decides, because customers cannot see each other's bookings.
+abstract class SearchRepository {
+  Future<List<BusRecord>> availableBuses(SearchCriteria criteria);
 }
 
 abstract class BlackoutRepository {
@@ -97,9 +131,10 @@ abstract class ConfigRepository {
   Future<void> save(AppConfig config);
 }
 
+/// Read-only for the app: payments are recorded by the server as part of a
+/// staff action (recordAdvance, recordBalance).
 abstract class PaymentRepository {
   Stream<List<Payment>> watchForBooking(String bookingId);
-  Future<void> record(Payment payment);
 }
 
 abstract class RatingRepository {

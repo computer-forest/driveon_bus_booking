@@ -33,18 +33,18 @@ Future<void> confirmBusSelection(
   final navigator = Navigator.of(context);
   final customer = await ref.read(authRepositoryProvider).authState().first;
   if (customer == null) return;
-  final config = await ref.read(configRepositoryProvider).watch().first;
 
   try {
     final booking = await ref.read(bookingRepositoryProvider).createHold(
           bus: bus,
           criteria: criteria,
           customer: customer,
-          holdFor: config.holdDuration,
         );
     navigator.push(MaterialPageRoute(builder: (_) => HoldScreen(booking: booking)));
   } on BusUnavailableException catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(e.toString())));
+  } on BookingException catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(e.message)));
   }
 }
 

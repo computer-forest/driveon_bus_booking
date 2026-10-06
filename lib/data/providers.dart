@@ -31,10 +31,9 @@ final vendorRepositoryProvider =
 final driverRepositoryProvider =
     Provider<DriverRepository>((ref) => MockDriverRepository(ref.watch(mockBackendProvider)));
 final bookingRepositoryProvider =
-    Provider<BookingRepository>((ref) => MockBookingRepository(
-      ref.watch(mockBackendProvider),
-      blackouts: ref.watch(blackoutRepositoryProvider),
-    ));
+    Provider<BookingRepository>((ref) => MockBookingRepository(ref.watch(mockBackendProvider)));
+final searchRepositoryProvider =
+    Provider<SearchRepository>((ref) => MockSearchRepository(ref.watch(mockBackendProvider)));
 final blackoutRepositoryProvider =
     Provider<BlackoutRepository>((ref) => MockBlackoutRepository(ref.watch(mockBackendProvider)));
 final locationRepositoryProvider =
@@ -93,6 +92,12 @@ class AuthNoticeNotifier extends Notifier<AuthNotice?> {
 }
 
 final authNoticeProvider = NotifierProvider<AuthNoticeNotifier, AuthNotice?>(AuthNoticeNotifier.new);
+
+/// Buses free for a trip, as decided by the backend. Keyed on the criteria
+/// object, which the results screen holds for as long as it is open.
+final searchResultsProvider = FutureProvider.autoDispose.family<List<BusRecord>, SearchCriteria>(
+  (ref, criteria) => ref.watch(searchRepositoryProvider).availableBuses(criteria),
+);
 
 // --- live reads ----------------------------------------------------------
 

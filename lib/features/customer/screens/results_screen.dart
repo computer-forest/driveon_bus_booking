@@ -6,6 +6,7 @@ import '../../../core/widgets/app_buttons.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../data/availability.dart';
+import '../../../data/repositories/repositories.dart';
 import '../../../data/models.dart';
 import '../../../data/providers.dart';
 import '../widgets/bus_result_card.dart';
@@ -21,23 +22,40 @@ class ResultsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
-    final buses = ref.watch(busesProvider);
-    final bookings = ref.watch(bookingsProvider);
-    final blackouts = ref.watch(blackoutsProvider);
+    final search = ref.watch(searchResultsProvider(criteria));
 
-    if (buses.isLoading || bookings.isLoading || blackouts.isLoading) {
+    if (search.isLoading) {
       return Scaffold(
         appBar: AppBar(),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
+    if (search.hasError) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  search.error is BookingException
+                      ? (search.error as BookingException).message
+                      : "We couldn't check availability. Check your connection and try again.",
+                  textAlign: TextAlign.center,
+                  style: textTheme.bodyLarge,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                SecondaryButton(label: 'Try again', onPressed: () => ref.invalidate(searchResultsProvider(criteria))),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
-    final results = searchBuses(
-      criteria,
-      buses: buses.items,
-      bookings: bookings.items,
-      blackouts: blackouts.items,
-    );
+    final results = search.value ?? const <BusRecord>[];
     final summary = criteria.summary;
 
     return Scaffold(

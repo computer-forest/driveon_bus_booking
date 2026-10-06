@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../data/repositories/repositories.dart';
+
 /// Runs a save and, if it fails, tells the person why instead of leaving a
 /// button that does nothing. Returns true when the write went through, so the
 /// caller can decide whether to close the form.
@@ -9,6 +11,10 @@ Future<bool> guardedWrite(BuildContext context, Future<void> Function() write) a
   try {
     await write();
     return true;
+  } on BookingException catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(e.message)));
+  } on BusUnavailableException catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(e.toString())));
   } on FirebaseException catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(_messageFor(e))));
   } catch (_) {

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../../models.dart';
 import '../repositories.dart';
@@ -185,4 +186,168 @@ class FirestoreConfigRepository extends FirestoreBase implements ConfigRepositor
 
   @override
   Future<void> save(AppConfig config) => db.doc('config/app').set(stamp(Codec.configToMap(config)));
+}
+
+// --- bookings (Stage 4/5) --------------------------------------------------
+
+/// Calls a Cloud Function and returns its data. Injected so tests can stand
+/// in for the server.
+typedef CallFunction = Future<Map<String, dynamic>> Function(String name, Map<String, dynamic> data);
+
+CallFunction cloudFunctionCaller([FirebaseFunctions? functions]) {
+  final fns = functions ?? FirebaseFunctions.instanceFor(region: 'asia-south1');
+  return (name, data) async {
+    final result = await fns.httpsCallable(name).call<Object?>(data);
+    final out = result.data;
+    return out is Map ? Map<String, dynamic>.from(out) : <String, dynamic>{};
+  };
+}
+
+String _wallClock(DateTime t) =>
+    '${t.year.toString().padLeft(4, '0')}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}'
+    'T${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+/// Runs a callable and turns the server's refusal into something the app can
+/// show. `bus-unavailable` becomes [BusUnavailableException].
+Future<Map<String, dynamic>> invokeFunction(CallFunction call, String name, Map<String, dynamic> data) async {
+  try {
+    return await call(name, data);
+  } on FirebaseFunctionsException catch (e) {
+    if (e.message == 'bus-unavailable') throw const BusUnavailableException();
+    switch (e.code) {
+      case 'unavailable':
+      case 'deadline-exceeded':
+        throw const BookingException('No internet connection. Check your connection and try again.');
+      case 'permission-denied':
+        throw const BookingException("You don't have permission to do that.");
+      case 'failed-precondition':
+      case 'resource-exhausted':
+      case 'invalid-argument':
+      case 'not-found':
+        throw BookingException(e.message ?? "That didn't work. Please try again.");
+      default:
+        throw const BookingException("Something went wrong on our side. Please try again.");
+    }
+  }
+}
+
+/// A customer sees their own bookings; staff see all of them. Every change
+/// goes through a Cloud Function, never a direct write.
+class FirestoreBookingRepository extends FirestoreBase implements BookingRepository {
+  FirestoreBookingRepository(super.db, super.currentUid, this._call, {required this.isAdmin});
+
+  final CallFunction _call;
+  final bool isAdmin;
+
+  @override
+  Stream<List<Booking>> watchAll() {
+    final uid = currentUid();
+    if (uid == null) return Stream.value(const []);
+    final query = isAdmin
+        ? db.collection('bookings')
+        : db.collection('bookings').where('customerId', isEqualTo: uid);
+    return list(query, Codec.bookingFromMap);
+  }
+
+  @override
+  Future<Booking> createHold({
+    required BusRecord bus,
+    required SearchCriteria criteria,
+    required AppUser customer,
+  }) async {
+    final result = await invokeFunction(_call, 'createHold', {
+      'busId': bus.id,
+      'startsAt': _wallClock(criteria.startsAt),
+      'endsAt': _wallClock(criteria.endsAt),
+      'route': '${criteria.pickup.area} → ${criteria.drop.area}',
+      'pickupLandmark': criteria.pickupLandmark,
+    });
+    final snap = await db.doc('bookings/${result['bookingId']}').get();
+    return Codec.bookingFromMap(snap.id, Codec.decodeMap(snap.data()!));
+  }
+
+  Future<void> _action(String bookingId, String action, [Map<String, dynamic> fields = const {}]) =>
+      invokeFunction(_call, 'bookingAction', {'bookingId': bookingId, 'action': action, ...fields});
+
+  @override
+  Future<void> confirmCost(String bookingId, int fare) => _action(bookingId, 'confirmCost', {'fare': fare});
+
+  @override
+  Future<void> recordAdvance(String bookingId, {required int amount, String mode = 'UPI', String reference = ''}) =>
+      _action(bookingId, 'recordAdvance', {'amount': amount, 'mode': mode, 'reference': reference});
+
+  @override
+  Future<void> startTrip(String bookingId) => _action(bookingId, 'startTrip');
+
+  @override
+  Future<void> completeTrip(String bookingId) => _action(bookingId, 'completeTrip');
+
+  @override
+  Future<void> recordBalance(String bookingId, {required int amount, String mode = 'Cash', String reference = ''}) =>
+      _action(bookingId, 'recordBalance', {'amount': amount, 'mode': mode, 'reference': reference});
+
+  @override
+  Future<void> reallocate(String bookingId, String newBusId) =>
+      _action(bookingId, 'reallocate', {'newBusId': newBusId});
+
+  @override
+  Future<void> cancel(String bookingId, {String reason = ''}) => _action(bookingId, 'cancel', {'reason': reason});
+}
+
+/// Which buses the server says are free; the bus details come from the
+/// buses collection the customer can already read.
+class FirestoreSearchRepository extends FirestoreBase implements SearchRepository {
+  FirestoreSearchRepository(super.db, super.currentUid, this._call, this._buses);
+
+  final CallFunction _call;
+  final BusRepository _buses;
+
+  @override
+  Future<List<BusRecord>> availableBuses(SearchCriteria criteria) async {
+    final result = await invokeFunction(_call, 'searchBuses', {
+      'startsAt': _wallClock(criteria.startsAt),
+      'endsAt': _wallClock(criteria.endsAt),
+      if (criteria.capacity != null) 'capacity': criteria.capacity,
+    });
+    final ids = [for (final id in (result['busIds'] as List?) ?? const []) id as String];
+    final all = await _buses.watchAll().first;
+    return [
+      for (final id in ids)
+        for (final bus in all)
+          if (bus.id == id) bus,
+    ];
+  }
+}
+
+class FirestorePaymentRepository extends FirestoreBase implements PaymentRepository {
+  FirestorePaymentRepository(super.db, super.currentUid);
+
+  @override
+  Stream<List<Payment>> watchForBooking(String bookingId) =>
+      list(db.collection('payments').where('bookingId', isEqualTo: bookingId), Codec.paymentFromMap)
+          .map((all) => all..sort((a, b) => a.receivedOn.compareTo(b.receivedOn)));
+}
+
+class FirestoreRatingRepository extends FirestoreBase implements RatingRepository {
+  FirestoreRatingRepository(super.db, super.currentUid);
+
+  @override
+  Future<void> submit(Rating rating) => db.doc('ratings/${rating.id}').set({
+        ...Codec.ratingToMap(rating),
+        'customerId': currentUid(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+}
+
+class FirestoreCancellationRepository extends FirestoreBase implements CancellationRepository {
+  FirestoreCancellationRepository(super.db, super.currentUid);
+
+  @override
+  Stream<List<CancellationRequest>> watchAll() => list(db.collection('cancellations'), Codec.cancellationFromMap);
+
+  @override
+  Future<void> request(CancellationRequest request) => db.doc('cancellations/${request.id}').set({
+        ...Codec.cancellationToMap(request),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
 }

@@ -101,7 +101,6 @@ void main() {
       bus: bus,
       criteria: _criteria(),
       customer: const AppUser(id: 'usr-other', role: UserRole.customer, name: 'Other', phone: '98200 99999'),
-      holdFor: const Duration(minutes: 30),
     );
     final before = backend.bookings.items.length;
 
@@ -120,7 +119,6 @@ void main() {
       bus: bus,
       criteria: _criteria(),
       customer: const AppUser(id: 'usr-other', role: UserRole.customer, name: 'Other', phone: '98200 99999'),
-      holdFor: const Duration(minutes: 30),
     );
 
     await _pump(tester, backend);

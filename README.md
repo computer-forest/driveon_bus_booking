@@ -202,3 +202,29 @@ staff edit. Regenerate the file from the sample data with
 replace the samples through the staff screens (or delete them in the console):
 the support/WhatsApp numbers are placeholders, and 11 of the 12 package rate
 charts are flagged `sampleRates`.
+
+## Availability, holds and bookings (Stage 3-5)
+
+Bookings, payments, ratings and cancellations live in Firestore. The app never
+writes a booking: every change is a Cloud Function, because only the server can
+see everyone's bookings and decide, atomically, whether a bus is free.
+
+| Function | What it does |
+|---|---|
+| `searchBuses` | Which buses are free for a trip: active bus and vendor, enough seats, every day the trip touches open, back within the window, no blackout, no overlapping booking. Searches that find nothing are logged in `searchMisses`. |
+| `createHold` | Holds a bus in one transaction, serialised per bus by a lock document, so two customers can never hold the same bus. Hold length comes from `config/app`. A customer may hold at most 3 buses at once. |
+| `bookingAction` | Staff only: `confirmCost`, `recordAdvance`, `startTrip`, `completeTrip`, `recordBalance`, `reallocate`, `cancel`. Each step is checked against the booking's current stage, a lapsed hold cannot be confirmed, and each writes an audit entry and, for money, a `payments` record. |
+| `expireHolds` | Every minute, marks lapsed holds Expired. Availability already ignores a lapsed hold the moment it lapses. |
+
+Rules (`functions/src/availability.ts`) are a port of `lib/data/availability.dart`
+(the app keeps its copy for the staff calendar and for demo mode) and are
+evaluated in India time. Trips are sent as wall-clock `YYYY-MM-DDTHH:mm`.
+
+A customer reads only their own bookings and payments; staff read all. Ratings
+and cancellation requests are created by the customer for their own booking
+only. Notifications and reports are still in memory (Stage 6).
+
+Tests: `cd functions && npm test` (availability rules),
+`cd rules-tests && npm test` (security rules, 25) and `npm run e2e` (27, in the
+emulators: includes eight customers racing for one bus, the full booking
+lifecycle, hold expiry, reallocation and cancellation).
