@@ -5,7 +5,7 @@ const { test, before, after } = require("node:test");
 const assert = require("node:assert");
 const { initializeApp, deleteApp } = require("firebase/app");
 const { getAuth, connectAuthEmulator, signInWithCustomToken, signOut } = require("firebase/auth");
-const { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc, updateDoc, serverTimestamp } = require("firebase/firestore");
+const { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, getDocs, query, orderBy } = require("firebase/firestore");
 const { getFunctions, connectFunctionsEmulator, httpsCallable } = require("firebase/functions");
 const { initializeTestEnvironment } = require("@firebase/rules-unit-testing");
 
@@ -59,7 +59,7 @@ test("the app's profile writes pass the rules, and a role field does not", async
 });
 
 test("a customer cannot read other collections or change roles", async () => {
-  await assert.rejects(getDoc(doc(db, "buses/bus-1")));
+  await assert.rejects(getDoc(doc(db, "bookings/bk-1")));
   await assert.rejects(call("setUserRole", { uid: "cust_919999999999", role: "admin" }));
 });
 
@@ -109,4 +109,48 @@ test("a signed-in customer or staff member cannot read the staff list", async ()
   const { customToken } = await staffToken("9820000001");
   await signInWithCustomToken(auth, customToken);
   await assert.rejects(getDoc(doc(db, "staff/919820000001")));
+});
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function auditEntries(expectCount) {
+  for (let i = 0; i < 40; i++) {
+    const snap = await getDocs(query(collection(db, "auditLog"), orderBy("at", "desc")));
+    if (snap.size >= expectCount) return snap.docs.map((d) => d.data());
+    await sleep(250);
+  }
+  return (await getDocs(collection(db, "auditLog"))).docs.map((d) => d.data());
+}
+
+test("staff changes to master data are audited by the server, with the staff member's name", async () => {
+  await signOut(auth);
+  const { customToken } = await staffToken("9820000001");
+  await signInWithCustomToken(auth, customToken);
+  const stamp = () => ({ updatedBy: auth.currentUser.uid, updatedAt: serverTimestamp() });
+  const vendor = (phone) => ({ name: "Test Vendor", contactPerson: "A", phone, active: true, ...stamp() });
+
+  // A server-side seed write must not be audited.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "vendors/ven-seeded"), { name: "Seeded", contactPerson: "S", phone: "0", active: true, updatedBy: "system:seed" });
+  });
+
+  await setDoc(doc(db, "vendors/ven-test"), vendor("1"));
+  await setDoc(doc(db, "vendors/ven-test"), vendor("2")); // only the phone changed
+
+  const entries = await auditEntries(2);
+  const mine = entries.filter((e) => e.docId === "ven-test");
+  assert.equal(mine.length, 2, JSON.stringify(entries));
+  assert.ok(mine.some((e) => e.action === "Vendor added" && e.actor === "Priya"));
+  const updated = mine.find((e) => e.action === "Vendor updated");
+  assert.ok(updated, "an update entry");
+  assert.match(updated.detail, /Test Vendor/);
+  assert.match(updated.detail, /changed: phone/);
+  assert.equal(entries.filter((e) => e.docId === "ven-seeded").length, 0);
+});
+
+test("a customer cannot read the audit log", async () => {
+  await signOut(auth);
+  const { customToken } = await call("verifyMsg91Token", { accessToken: "fake-access-token-z", phone: "9820011223" });
+  await signInWithCustomToken(auth, customToken);
+  await assert.rejects(getDocs(collection(db, "auditLog")));
 });

@@ -97,11 +97,17 @@ class BookingDetailScreen extends ConsumerWidget {
     final live = ref.watch(bookingsProvider).items.where((b) => b.id == booking.id);
     final current = live.isEmpty ? booking : live.first;
     final bus = ref.watch(busesProvider).items.where((b) => b.id == current.busId).firstOrNull;
-    final driver = ref
+    // Driver records (with phone numbers) are staff-only. A customer sees the
+    // driver's name from the bus; the number is added to the booking itself
+    // when staff confirm it (Stage 4/5).
+    final staffDriver = ref
         .watch(driversProvider)
         .items
         .where((d) => d.id == bus?.driverId)
         .firstOrNull;
+    final driver = bus == null || bus.driverId == null
+        ? null
+        : DriverInfo(name: staffDriver?.name ?? bus.driverName, phone: staffDriver?.phone ?? '', busNumber: bus.regNumber);
     final payments = ref.watch(paymentsForBookingProvider(current.id)).items;
     final ledger = _ledgerFor(current, payments);
     return Scaffold(
@@ -141,9 +147,9 @@ class BookingDetailScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.xxl),
             const SectionLabel('Your bus and driver'),
             AppCard(
-              child: bus == null || driver == null
+              child: driver == null
                   ? Text('Your driver will be shared once the booking is confirmed.', style: textTheme.bodyMedium)
-                  : DriverCard(driver: DriverInfo(name: driver.name, phone: driver.phone, busNumber: bus.regNumber)),
+                  : DriverCard(driver: driver),
             ),
             const SizedBox(height: AppSpacing.md),
             SecondaryButton(label: 'Open GPS link', icon: Icons.location_on_outlined, onPressed: () {}),

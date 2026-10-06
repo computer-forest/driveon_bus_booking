@@ -95,9 +95,11 @@ class AppConfig {
 }
 
 class DriverInfo {
-  const DriverInfo({required this.name, required this.phone, required this.busNumber});
+  const DriverInfo({required this.name, this.phone = '', required this.busNumber});
 
   final String name;
+
+  /// Empty until the contact is shared with the customer.
   final String phone;
   final String busNumber;
 }

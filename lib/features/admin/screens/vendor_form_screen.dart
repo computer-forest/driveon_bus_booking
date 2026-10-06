@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/utils/guarded_write.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_atoms.dart';
@@ -45,18 +46,19 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
   String? _orNull(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
 
   Future<void> _save() async {
-    await ref.read(vendorRepositoryProvider).upsert(Vendor(
-          id: widget.vendor?.id ?? newId('ven'),
-          name: _name.text.trim(),
-          contactPerson: _contact.text.trim(),
-          phone: _phone.text.trim(),
-          active: _active,
-          email: _orNull(_email),
-          address: _orNull(_address),
-          pan: _orNull(_pan),
-          gst: _orNull(_gst),
-        ));
-    if (mounted) Navigator.of(context).pop();
+    final vendor = Vendor(
+      id: widget.vendor?.id ?? newId('ven'),
+      name: _name.text.trim(),
+      contactPerson: _contact.text.trim(),
+      phone: _phone.text.trim(),
+      active: _active,
+      email: _orNull(_email),
+      address: _orNull(_address),
+      pan: _orNull(_pan),
+      gst: _orNull(_gst),
+    );
+    final saved = await guardedWrite(context, () => ref.read(vendorRepositoryProvider).upsert(vendor));
+    if (saved && mounted) Navigator.of(context).pop();
   }
 
   @override

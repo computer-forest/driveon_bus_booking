@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'data/firebase_overrides.dart';
 import 'data/providers.dart';
 import 'firebase_options.dart';
 import 'features/auth/data/auth_config.dart';
@@ -31,6 +32,7 @@ Future<void> main() async {
       authConfigProvider.overrideWithValue(AuthConfig.fromEnvironment()),
       secureStoreProvider.overrideWithValue(const FlutterSecureStore()),
       biometricServiceProvider.overrideWith((ref) => LocalAuthBiometricService()),
+      if (useFirebase) ...firestoreRepositoryOverrides(),
       if (useFirebase)
         authRepositoryProvider.overrideWith((ref) => FirebaseAuthRepository(
               auth: FirebaseAuth.instance,

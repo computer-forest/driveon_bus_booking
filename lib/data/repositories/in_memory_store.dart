@@ -27,6 +27,11 @@ class InMemoryStore<T> {
 
   void _emit() => _changes.add(items);
 
+  void replaceAll(Iterable<T> values) {
+    _items = List<T>.of(values);
+    _emit();
+  }
+
   void add(T value) {
     _items = [..._items, value];
     _emit();

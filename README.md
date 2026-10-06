@@ -164,3 +164,41 @@ that is already signed in keeps its role until its token refreshes (up to an
 hour) or the user is signed out from Authentication > Users.
 
 For the emulator tests, `rules-tests/e2e.test.js` seeds its own staff entries.
+
+## Master data in Firestore (Stage 2)
+
+Buses, vendors, drivers, locations, blackouts, notification templates, package
+rates, FAQs and the app config are read from and written to Firestore. Bookings,
+payments, notifications and reports are still in memory until Stages 4-6.
+
+| Collection | Read | Write |
+|---|---|---|
+| `buses`, `locations`, `blackouts`, `packages`, `faqs`, `config/app` | any signed-in user | staff |
+| `vendors`, `drivers`, `templates`, `busAdmin` (bus GPS links) | staff | staff |
+| `auditLog` | staff | server only |
+| `users/{uid}/recents` | that customer | that customer |
+
+Every staff write must carry `updatedBy` (their own uid) and `updatedAt` (server
+time); the rules enforce it. A Cloud Function trigger (`functions/src/audit.ts`)
+turns each write into an `auditLog` entry naming the staff member and the
+fields that changed. Buses, vendors, drivers and templates are never deleted,
+only deactivated. A deletion of a location or blackout is logged as "Staff"
+because a deletion carries no author.
+
+The GPS link is kept in `busAdmin` so customers, who can read `buses`, cannot
+see where a vehicle is. Driver phone numbers are staff-only too; a customer
+sees the driver's name from the bus.
+
+**Starting data.** `tools/seed/seed.json` holds the app's sample records.
+Load them with:
+
+```bash
+node functions/scripts/seed.js        # real project, uses your `firebase login`
+```
+
+It only creates documents that do not exist, so running it again never undoes a
+staff edit. Regenerate the file from the sample data with
+`EXPORT_SEED=1 flutter test test/firestore_codec_test.dart`. Before launch,
+replace the samples through the staff screens (or delete them in the console):
+the support/WhatsApp numbers are placeholders, and 11 of the 12 package rate
+charts are flagged `sampleRates`.

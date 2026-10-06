@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/utils/guarded_write.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -87,8 +88,11 @@ class _TemplateEditorState extends ConsumerState<_TemplateEditor> {
   }
 
   Future<void> _save() async {
-    await ref.read(templateRepositoryProvider).save(widget.template.copyWith(preview: _body.text.trim()));
-    if (mounted) Navigator.of(context).pop();
+    final saved = await guardedWrite(
+      context,
+      () => ref.read(templateRepositoryProvider).save(widget.template.copyWith(preview: _body.text.trim())),
+    );
+    if (saved && mounted) Navigator.of(context).pop();
   }
 
   @override

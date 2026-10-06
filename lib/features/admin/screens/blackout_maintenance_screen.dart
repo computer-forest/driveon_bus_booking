@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/utils/guarded_write.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -29,7 +30,8 @@ class _BlackoutMaintenanceScreenState extends ConsumerState<BlackoutMaintenanceS
       backgroundColor: Colors.transparent,
       builder: (context) => const _AddBlackoutSheet(),
     );
-    if (entry != null) await ref.read(blackoutRepositoryProvider).add(entry);
+    if (entry == null || !mounted) return;
+    await guardedWrite(context, () => ref.read(blackoutRepositoryProvider).add(entry));
   }
 
   @override
@@ -94,7 +96,7 @@ class _BlackoutMaintenanceScreenState extends ConsumerState<BlackoutMaintenanceS
                           ),
                         ),
                         IconButton(
-                          onPressed: () => ref.read(blackoutRepositoryProvider).remove(b.id),
+                          onPressed: () => guardedWrite(context, () => ref.read(blackoutRepositoryProvider).remove(b.id)),
                           icon: const Icon(Icons.close_rounded, size: 18),
                           color: AppColors.textTertiary,
                         ),

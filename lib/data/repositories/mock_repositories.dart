@@ -87,8 +87,12 @@ class MockDriverRepository implements DriverRepository {
 }
 
 class MockBookingRepository implements BookingRepository {
-  MockBookingRepository(this._b);
+  /// Bookings are still in memory (Stage 4 moves them to Firestore), but
+  /// blackouts already live wherever [blackouts] says, so a hold is checked
+  /// against the real ones.
+  MockBookingRepository(this._b, {BlackoutRepository? blackouts}) : _blackouts = blackouts;
   final MockBackend _b;
+  final BlackoutRepository? _blackouts;
 
   @override
   Stream<List<Booking>> watchAll() => _b.bookings.watch();
@@ -103,12 +107,13 @@ class MockBookingRepository implements BookingRepository {
     required AppUser customer,
     required Duration holdFor,
   }) async {
+    final blackouts = await (_blackouts?.watchAll() ?? _b.blackouts.watch()).first;
     final free = isBusFree(
       bus,
       criteria.startsAt,
       criteria.endsAt,
       bookings: _b.bookings.items,
-      blackouts: _b.blackouts.items,
+      blackouts: blackouts,
     );
     if (!free) throw const BusUnavailableException();
 
@@ -166,6 +171,15 @@ class MockLocationRepository implements LocationRepository {
   Stream<List<LocationEntry>> watchRecent() => _b.recentLocations.watch();
 
   @override
+  Future<void> markRecent(LocationEntry location) async {
+    // Newest first, no repeats.
+    _b.recentLocations.replaceAll([
+      location,
+      ..._b.recentLocations.items.where((e) => e.id != location.id),
+    ]);
+  }
+
+  @override
   Future<void> add(LocationEntry location) async => _b.locations.add(location);
 
   @override
@@ -194,8 +208,6 @@ class MockAuditRepository implements AuditRepository {
   @override
   Stream<List<AuditEntry>> watchAll() => _b.audit.watch();
 
-  @override
-  Future<void> append(AuditEntry entry) async => _b.audit.add(entry);
 }
 
 class MockNotificationRepository implements NotificationRepository {

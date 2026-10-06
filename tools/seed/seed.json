@@ -1,0 +1,1023 @@
+{
+  "vendors": {
+    "ven-neeta": {
+      "name": "Neeta Travels",
+      "contactPerson": "Suresh Neeta",
+      "phone": "+91 98200 10001",
+      "active": true,
+      "email": null,
+      "address": null,
+      "pan": null,
+      "gst": null,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "ven-shivneri": {
+      "name": "Shivneri Coaches",
+      "contactPerson": "Anil Bhosale",
+      "phone": "+91 98200 10002",
+      "active": true,
+      "email": null,
+      "address": null,
+      "pan": null,
+      "gst": null,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "ven-konkan": {
+      "name": "Konkan Darshan",
+      "contactPerson": "Meghna Rane",
+      "phone": "+91 98200 10003",
+      "active": false,
+      "email": null,
+      "address": null,
+      "pan": null,
+      "gst": null,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    }
+  },
+  "drivers": {
+    "drv-suresh": {
+      "name": "Suresh Patil",
+      "phone": "+91 90000 11122",
+      "vendorId": "ven-neeta",
+      "vendorName": "Neeta Travels",
+      "licenceNumber": "MH04 20180012345",
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "drv-ramesh": {
+      "name": "Ramesh Jadhav",
+      "phone": "+91 90000 22233",
+      "vendorId": "ven-neeta",
+      "vendorName": "Neeta Travels",
+      "licenceNumber": "MH04 20170034567",
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "drv-vikas": {
+      "name": "Vikas More",
+      "phone": "+91 90000 33344",
+      "vendorId": "ven-shivneri",
+      "vendorName": "Shivneri Coaches",
+      "licenceNumber": "MH12 20190056789",
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "drv-pramod": {
+      "name": "Pramod Kale",
+      "phone": "+91 90000 44455",
+      "vendorId": "ven-shivneri",
+      "vendorName": "Shivneri Coaches",
+      "licenceNumber": "MH12 20200078901",
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    }
+  },
+  "buses": {
+    "bus-7781": {
+      "regNumber": "MH-04-BT-7781",
+      "vendorId": "ven-neeta",
+      "vendorName": "Neeta Travels",
+      "capacity": 20,
+      "seatType": "Pushback seats",
+      "ac": true,
+      "baseCity": "Thane",
+      "driverId": "drv-suresh",
+      "driverName": "Suresh Patil",
+      "active": true,
+      "amenities": [
+        "AC",
+        "Pushback seats",
+        "Reading lights",
+        "Charging points"
+      ],
+      "photoCount": 4,
+      "weeklyAvailability": [
+        {
+          "available": true,
+          "start": 840,
+          "end": 1320
+        },
+        {
+          "available": true,
+          "start": 840,
+          "end": 1320
+        },
+        {
+          "available": true,
+          "start": 840,
+          "end": 1320
+        },
+        {
+          "available": true,
+          "start": 840,
+          "end": 1320
+        },
+        {
+          "available": true,
+          "start": 840,
+          "end": 1320
+        },
+        {
+          "available": false,
+          "start": 360,
+          "end": 1320
+        },
+        {
+          "available": false,
+          "start": 360,
+          "end": 1320
+        }
+      ],
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "bus-9902": {
+      "regNumber": "MH-04-CT-9902",
+      "vendorId": "ven-neeta",
+      "vendorName": "Neeta Travels",
+      "capacity": 17,
+      "seatType": "Pushback seats",
+      "ac": true,
+      "baseCity": "Thane",
+      "driverId": "drv-ramesh",
+      "driverName": "Ramesh Jadhav",
+      "active": true,
+      "amenities": [
+        "AC",
+        "Pushback seats",
+        "Music system"
+      ],
+      "photoCount": 4,
+      "weeklyAvailability": [
+        {
+          "available": true,
+          "start": 360,
+          "end": 1020
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1020
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1020
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1020
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1020
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1020
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1020
+        }
+      ],
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "bus-1120": {
+      "regNumber": "MH-12-AK-1120",
+      "vendorId": "ven-shivneri",
+      "vendorName": "Shivneri Coaches",
+      "capacity": 35,
+      "seatType": "Highback seats",
+      "ac": false,
+      "baseCity": "Pune",
+      "driverId": "drv-vikas",
+      "driverName": "Vikas More",
+      "active": true,
+      "amenities": [
+        "Highback seats",
+        "Extra legroom"
+      ],
+      "photoCount": 4,
+      "weeklyAvailability": [
+        {
+          "available": true,
+          "start": 360,
+          "end": 1380
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1380
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1380
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1380
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1380
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1380
+        },
+        {
+          "available": false,
+          "start": 360,
+          "end": 1320
+        }
+      ],
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "bus-5567": {
+      "regNumber": "MH-14-DE-5567",
+      "vendorId": "ven-shivneri",
+      "vendorName": "Shivneri Coaches",
+      "capacity": 40,
+      "seatType": "Pushback seats",
+      "ac": true,
+      "baseCity": "Pune",
+      "driverId": null,
+      "driverName": "Unassigned",
+      "active": false,
+      "amenities": [
+        "AC",
+        "Pushback seats",
+        "Luggage hold"
+      ],
+      "photoCount": 4,
+      "weeklyAvailability": [
+        {
+          "available": true,
+          "start": 360,
+          "end": 1380
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1380
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1380
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1380
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1380
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1380
+        },
+        {
+          "available": true,
+          "start": 360,
+          "end": 1380
+        }
+      ],
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    }
+  },
+  "busAdmin": {},
+  "locations": {
+    "loc-thane-west": {
+      "city": "Thane",
+      "area": "Thane West",
+      "saved": true,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "loc-ghodbunder": {
+      "city": "Thane",
+      "area": "Ghodbunder Road",
+      "saved": true,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "loc-andheri-e": {
+      "city": "Mumbai",
+      "area": "Andheri East",
+      "saved": false,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "loc-bandra-w": {
+      "city": "Mumbai",
+      "area": "Bandra West",
+      "saved": false,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "loc-borivali": {
+      "city": "Mumbai",
+      "area": "Borivali",
+      "saved": false,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "loc-vashi": {
+      "city": "Navi Mumbai",
+      "area": "Vashi",
+      "saved": false,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "loc-hinjewadi": {
+      "city": "Pune",
+      "area": "Hinjewadi",
+      "saved": false,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "loc-mahabaleshwar": {
+      "city": "Mahabaleshwar",
+      "area": "Main Market",
+      "saved": false,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "loc-lonavala": {
+      "city": "Lonavala",
+      "area": "Tungarli",
+      "saved": false,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "loc-alibaug": {
+      "city": "Alibaug",
+      "area": "Alibaug Bus Stand",
+      "saved": false,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    }
+  },
+  "blackouts": {
+    "blk-1": {
+      "busId": "bus-7781",
+      "busReg": "MH-04-BT-7781",
+      "reason": "Annual service",
+      "from": {
+        "__ts": "2026-09-19T18:30:00.000Z"
+      },
+      "to": {
+        "__ts": "2026-09-21T18:30:00.000Z"
+      },
+      "isMaintenance": true,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "blk-2": {
+      "busId": "bus-1120",
+      "busReg": "MH-12-AK-1120",
+      "reason": "Vendor-side festival block",
+      "from": {
+        "__ts": "2026-09-30T18:30:00.000Z"
+      },
+      "to": {
+        "__ts": "2026-10-02T18:30:00.000Z"
+      },
+      "isMaintenance": false,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    }
+  },
+  "templates": {
+    "tpl-confirmed": {
+      "name": "Booking confirmed",
+      "channel": "Push + Email",
+      "trigger": "On advance/full payment recorded",
+      "preview": "Your bus is confirmed! MH-04-BT-7781, driver Suresh Patil...",
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "tpl-cost": {
+      "name": "Cost confirmed",
+      "channel": "Push",
+      "trigger": "On Admin recording confirmed cost",
+      "preview": "Total fare for your trip is ₹18,000. Advance due: ₹4,500.",
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "tpl-realloc": {
+      "name": "Bus reallocated",
+      "channel": "Push + Email",
+      "trigger": "On Admin reallocation",
+      "preview": "Your bus has changed to MH-04-CT-9902. New driver...",
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "tpl-hold": {
+      "name": "Hold about to expire",
+      "channel": "Push (Admin)",
+      "trigger": "5 minutes before hold expiry",
+      "preview": "CB-20260914-0472 hold expires in 5 minutes.",
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    }
+  },
+  "packages": {
+    "mumbai": {
+      "city": "Mumbai",
+      "order": 0,
+      "packages": [
+        {
+          "seater": "17–20 seater Tempo traveller",
+          "sampleRates": false,
+          "trips": [
+            {
+              "destination": "Karjat",
+              "oneDayRate": 10500,
+              "twoDayRate": 16000
+            },
+            {
+              "destination": "Neral / Matheran",
+              "oneDayRate": 10500,
+              "twoDayRate": 16500
+            },
+            {
+              "destination": "Virar",
+              "oneDayRate": 10500,
+              "twoDayRate": 16500
+            },
+            {
+              "destination": "Uran",
+              "oneDayRate": 10500,
+              "twoDayRate": 16500
+            },
+            {
+              "destination": "Lonavala",
+              "oneDayRate": 13000,
+              "twoDayRate": 20000
+            },
+            {
+              "destination": "Mahabaleshwar",
+              "oneDayRate": 15000,
+              "twoDayRate": 23000
+            }
+          ]
+        },
+        {
+          "seater": "22 seater Bus",
+          "sampleRates": true,
+          "trips": [
+            {
+              "destination": "Karjat",
+              "oneDayRate": 12000,
+              "twoDayRate": 18500
+            },
+            {
+              "destination": "Neral / Matheran",
+              "oneDayRate": 12000,
+              "twoDayRate": 19000
+            },
+            {
+              "destination": "Virar",
+              "oneDayRate": 12000,
+              "twoDayRate": 19000
+            },
+            {
+              "destination": "Uran",
+              "oneDayRate": 12000,
+              "twoDayRate": 19000
+            },
+            {
+              "destination": "Lonavala",
+              "oneDayRate": 15000,
+              "twoDayRate": 23000
+            },
+            {
+              "destination": "Mahabaleshwar",
+              "oneDayRate": 17000,
+              "twoDayRate": 26500
+            }
+          ]
+        },
+        {
+          "seater": "27–30 seater Bus",
+          "sampleRates": true,
+          "trips": [
+            {
+              "destination": "Karjat",
+              "oneDayRate": 14000,
+              "twoDayRate": 21500
+            },
+            {
+              "destination": "Neral / Matheran",
+              "oneDayRate": 14000,
+              "twoDayRate": 22500
+            },
+            {
+              "destination": "Virar",
+              "oneDayRate": 14000,
+              "twoDayRate": 22500
+            },
+            {
+              "destination": "Uran",
+              "oneDayRate": 14000,
+              "twoDayRate": 22500
+            },
+            {
+              "destination": "Lonavala",
+              "oneDayRate": 17500,
+              "twoDayRate": 27000
+            },
+            {
+              "destination": "Mahabaleshwar",
+              "oneDayRate": 20000,
+              "twoDayRate": 31000
+            }
+          ]
+        },
+        {
+          "seater": "35–40 seater Bus",
+          "sampleRates": true,
+          "trips": [
+            {
+              "destination": "Karjat",
+              "oneDayRate": 17000,
+              "twoDayRate": 25500
+            },
+            {
+              "destination": "Neral / Matheran",
+              "oneDayRate": 17000,
+              "twoDayRate": 26500
+            },
+            {
+              "destination": "Virar",
+              "oneDayRate": 17000,
+              "twoDayRate": 26500
+            },
+            {
+              "destination": "Uran",
+              "oneDayRate": 17000,
+              "twoDayRate": 26500
+            },
+            {
+              "destination": "Lonavala",
+              "oneDayRate": 21000,
+              "twoDayRate": 32000
+            },
+            {
+              "destination": "Mahabaleshwar",
+              "oneDayRate": 24000,
+              "twoDayRate": 37000
+            }
+          ]
+        }
+      ],
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "navi-mumbai": {
+      "city": "Navi Mumbai",
+      "order": 1,
+      "packages": [
+        {
+          "seater": "17–20 seater Tempo traveller",
+          "sampleRates": true,
+          "trips": [
+            {
+              "destination": "Karjat",
+              "oneDayRate": 10000,
+              "twoDayRate": 15500
+            },
+            {
+              "destination": "Neral / Matheran",
+              "oneDayRate": 10000,
+              "twoDayRate": 16000
+            },
+            {
+              "destination": "Virar",
+              "oneDayRate": 10000,
+              "twoDayRate": 16000
+            },
+            {
+              "destination": "Uran",
+              "oneDayRate": 10000,
+              "twoDayRate": 16000
+            },
+            {
+              "destination": "Lonavala",
+              "oneDayRate": 12500,
+              "twoDayRate": 19500
+            },
+            {
+              "destination": "Mahabaleshwar",
+              "oneDayRate": 14500,
+              "twoDayRate": 22500
+            }
+          ]
+        },
+        {
+          "seater": "22 seater Bus",
+          "sampleRates": true,
+          "trips": [
+            {
+              "destination": "Karjat",
+              "oneDayRate": 11500,
+              "twoDayRate": 18000
+            },
+            {
+              "destination": "Neral / Matheran",
+              "oneDayRate": 11500,
+              "twoDayRate": 18500
+            },
+            {
+              "destination": "Virar",
+              "oneDayRate": 11500,
+              "twoDayRate": 18500
+            },
+            {
+              "destination": "Uran",
+              "oneDayRate": 11500,
+              "twoDayRate": 18500
+            },
+            {
+              "destination": "Lonavala",
+              "oneDayRate": 14500,
+              "twoDayRate": 22500
+            },
+            {
+              "destination": "Mahabaleshwar",
+              "oneDayRate": 16500,
+              "twoDayRate": 25500
+            }
+          ]
+        },
+        {
+          "seater": "27–30 seater Bus",
+          "sampleRates": true,
+          "trips": [
+            {
+              "destination": "Karjat",
+              "oneDayRate": 13500,
+              "twoDayRate": 21000
+            },
+            {
+              "destination": "Neral / Matheran",
+              "oneDayRate": 13500,
+              "twoDayRate": 21500
+            },
+            {
+              "destination": "Virar",
+              "oneDayRate": 13500,
+              "twoDayRate": 21500
+            },
+            {
+              "destination": "Uran",
+              "oneDayRate": 13500,
+              "twoDayRate": 21500
+            },
+            {
+              "destination": "Lonavala",
+              "oneDayRate": 17000,
+              "twoDayRate": 26000
+            },
+            {
+              "destination": "Mahabaleshwar",
+              "oneDayRate": 19500,
+              "twoDayRate": 30000
+            }
+          ]
+        },
+        {
+          "seater": "35–40 seater Bus",
+          "sampleRates": true,
+          "trips": [
+            {
+              "destination": "Karjat",
+              "oneDayRate": 16500,
+              "twoDayRate": 25000
+            },
+            {
+              "destination": "Neral / Matheran",
+              "oneDayRate": 16500,
+              "twoDayRate": 25500
+            },
+            {
+              "destination": "Virar",
+              "oneDayRate": 16500,
+              "twoDayRate": 25500
+            },
+            {
+              "destination": "Uran",
+              "oneDayRate": 16500,
+              "twoDayRate": 25500
+            },
+            {
+              "destination": "Lonavala",
+              "oneDayRate": 20000,
+              "twoDayRate": 31000
+            },
+            {
+              "destination": "Mahabaleshwar",
+              "oneDayRate": 23500,
+              "twoDayRate": 35500
+            }
+          ]
+        }
+      ],
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "thane": {
+      "city": "Thane",
+      "order": 2,
+      "packages": [
+        {
+          "seater": "17–20 seater Tempo traveller",
+          "sampleRates": true,
+          "trips": [
+            {
+              "destination": "Karjat",
+              "oneDayRate": 10000,
+              "twoDayRate": 15000
+            },
+            {
+              "destination": "Neral / Matheran",
+              "oneDayRate": 10000,
+              "twoDayRate": 15500
+            },
+            {
+              "destination": "Virar",
+              "oneDayRate": 10000,
+              "twoDayRate": 15500
+            },
+            {
+              "destination": "Uran",
+              "oneDayRate": 10000,
+              "twoDayRate": 15500
+            },
+            {
+              "destination": "Lonavala",
+              "oneDayRate": 12500,
+              "twoDayRate": 19000
+            },
+            {
+              "destination": "Mahabaleshwar",
+              "oneDayRate": 14000,
+              "twoDayRate": 22000
+            }
+          ]
+        },
+        {
+          "seater": "22 seater Bus",
+          "sampleRates": true,
+          "trips": [
+            {
+              "destination": "Karjat",
+              "oneDayRate": 11500,
+              "twoDayRate": 17500
+            },
+            {
+              "destination": "Neral / Matheran",
+              "oneDayRate": 11500,
+              "twoDayRate": 18000
+            },
+            {
+              "destination": "Virar",
+              "oneDayRate": 11500,
+              "twoDayRate": 18000
+            },
+            {
+              "destination": "Uran",
+              "oneDayRate": 11500,
+              "twoDayRate": 18000
+            },
+            {
+              "destination": "Lonavala",
+              "oneDayRate": 14000,
+              "twoDayRate": 22000
+            },
+            {
+              "destination": "Mahabaleshwar",
+              "oneDayRate": 16500,
+              "twoDayRate": 25000
+            }
+          ]
+        },
+        {
+          "seater": "27–30 seater Bus",
+          "sampleRates": true,
+          "trips": [
+            {
+              "destination": "Karjat",
+              "oneDayRate": 13500,
+              "twoDayRate": 20500
+            },
+            {
+              "destination": "Neral / Matheran",
+              "oneDayRate": 13500,
+              "twoDayRate": 21000
+            },
+            {
+              "destination": "Virar",
+              "oneDayRate": 13500,
+              "twoDayRate": 21000
+            },
+            {
+              "destination": "Uran",
+              "oneDayRate": 13500,
+              "twoDayRate": 21000
+            },
+            {
+              "destination": "Lonavala",
+              "oneDayRate": 16500,
+              "twoDayRate": 25500
+            },
+            {
+              "destination": "Mahabaleshwar",
+              "oneDayRate": 19000,
+              "twoDayRate": 29500
+            }
+          ]
+        },
+        {
+          "seater": "35–40 seater Bus",
+          "sampleRates": true,
+          "trips": [
+            {
+              "destination": "Karjat",
+              "oneDayRate": 16000,
+              "twoDayRate": 24500
+            },
+            {
+              "destination": "Neral / Matheran",
+              "oneDayRate": 16000,
+              "twoDayRate": 25000
+            },
+            {
+              "destination": "Virar",
+              "oneDayRate": 16000,
+              "twoDayRate": 25000
+            },
+            {
+              "destination": "Uran",
+              "oneDayRate": 16000,
+              "twoDayRate": 25000
+            },
+            {
+              "destination": "Lonavala",
+              "oneDayRate": 20000,
+              "twoDayRate": 30500
+            },
+            {
+              "destination": "Mahabaleshwar",
+              "oneDayRate": 23000,
+              "twoDayRate": 35000
+            }
+          ]
+        }
+      ],
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    }
+  },
+  "faqs": {
+    "faq-01": {
+      "question": "How is the whole bus booked, not just seats?",
+      "answer": "You hire the entire vehicle for your window — there is no seat map. Once you select a bus it is held for you immediately.",
+      "order": 0,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "faq-02": {
+      "question": "How do I pay?",
+      "answer": "There is no payment gateway. Our team calls to confirm the cost, and the advance or full amount is paid directly — Admin records it against your booking.",
+      "order": 1,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "faq-03": {
+      "question": "Can I cancel a booking?",
+      "answer": "Request cancellation from My Bookings. Our team processes it and records any refund.",
+      "order": 2,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    },
+    "faq-04": {
+      "question": "What if my held bus expires?",
+      "answer": "A hold lasts a fixed window. If it lapses before confirmation, the bus is released and you can search again.",
+      "order": 3,
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    }
+  },
+  "config": {
+    "app": {
+      "holdMinutes": 30,
+      "preBufferMinutes": 45,
+      "postBufferMinutes": 45,
+      "defaultAdvancePercent": 25,
+      "supportPhone": "+91 98200 00000",
+      "whatsappNumber": "+91 98200 00000",
+      "capacities": [
+        17,
+        20,
+        27,
+        30,
+        35,
+        40
+      ],
+      "updatedBy": "system:seed",
+      "updatedAt": {
+        "__ts": "2026-09-14T05:15:00.000Z"
+      }
+    }
+  }
+}

@@ -70,6 +70,8 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
       MaterialPageRoute(builder: (_) => LocationPickerScreen(title: pickup ? 'Pickup location' : 'Drop location')),
     );
     if (result == null) return;
+    // Best effort: a failure to remember the search must not block the form.
+    ref.read(locationRepositoryProvider).markRecent(result).catchError((Object _) {});
     setState(() {
       if (pickup) {
         _pickupLocation = result;

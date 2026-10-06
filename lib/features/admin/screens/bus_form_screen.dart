@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/utils/guarded_write.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -90,9 +91,10 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
     String? driverId;
     var driverName = _unassigned;
 
+    DriverRecord? newDriver;
     if (_addingDriver) {
       final licence = _newDriverLicence.text.trim();
-      final driver = DriverRecord(
+      final driver = newDriver = DriverRecord(
         id: newId('drv'),
         name: _newDriverName.text.trim(),
         phone: _newDriverPhone.text.trim(),
@@ -100,7 +102,6 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
         vendorName: vendor.name,
         licenceNumber: licence.isEmpty ? null : licence,
       );
-      await ref.read(driverRepositoryProvider).upsert(driver);
       driverId = driver.id;
       driverName = driver.name;
     } else if (_driver != _unassigned) {
@@ -127,9 +128,13 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
       amenities: widget.bus?.amenities ?? [if (_ac) 'AC', '$_seatType seats'],
       photoCount: widget.bus?.photoCount ?? 4,
     );
-    await ref.read(busRepositoryProvider).upsert(record);
+    // A new driver is saved first so the bus never points at one that is not there.
+    final saved = await guardedWrite(context, () async {
+      if (newDriver != null) await ref.read(driverRepositoryProvider).upsert(newDriver);
+      await ref.read(busRepositoryProvider).upsert(record);
+    });
 
-    if (mounted) Navigator.of(context).pop();
+    if (saved && mounted) Navigator.of(context).pop();
   }
 
   @override

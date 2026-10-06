@@ -43,6 +43,128 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // --- staff-managed master data (Stage 2) ---------------------------
+    // Every staff write must carry who and when, enforced here so the audit
+    // trigger on the server can trust it.
+
+    function stamped() {
+      return isAdmin()
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function hasFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // Vendors and drivers hold contact details: staff only. Nothing here is
+    // ever deleted, only deactivated.
+    match /vendors/{id} {
+      allow read: if isAdmin();
+      allow create, update: if stamped()
+        && hasFields(['name', 'contactPerson', 'phone', 'active'])
+        && validText(request.resource.data.name, 120)
+        && request.resource.data.active is bool;
+      allow delete: if false;
+    }
+
+    match /drivers/{id} {
+      allow read: if isAdmin();
+      allow create, update: if stamped()
+        && hasFields(['name', 'phone', 'vendorId'])
+        && validText(request.resource.data.name, 120);
+      allow delete: if false;
+    }
+
+    // Customers search buses, so any signed-in user may read them. The GPS
+    // link is kept apart in busAdmin so they cannot.
+    match /buses/{id} {
+      allow read: if signedIn();
+      allow create, update: if stamped()
+        && hasFields(['regNumber', 'vendorId', 'capacity', 'active', 'weeklyAvailability'])
+        && validText(request.resource.data.regNumber, 40)
+        && request.resource.data.capacity is int
+        && request.resource.data.capacity > 0 && request.resource.data.capacity <= 100
+        && request.resource.data.active is bool
+        && request.resource.data.weeklyAvailability is list
+        && request.resource.data.weeklyAvailability.size() == 7;
+      allow delete: if false;
+    }
+
+    match /busAdmin/{id} {
+      allow read: if isAdmin();
+      allow create, update: if stamped();
+      allow delete: if false;
+    }
+
+    match /locations/{id} {
+      allow read: if signedIn();
+      allow create, update: if stamped()
+        && hasFields(['city', 'area'])
+        && validText(request.resource.data.city, 80)
+        && validText(request.resource.data.area, 120);
+      allow delete: if isAdmin();
+    }
+
+    match /blackouts/{id} {
+      allow read: if signedIn();
+      allow create, update: if stamped()
+        && hasFields(['busId', 'from', 'to'])
+        && request.resource.data.from is timestamp
+        && request.resource.data.to is timestamp
+        && request.resource.data.from <= request.resource.data.to;
+      allow delete: if isAdmin();
+    }
+
+    match /templates/{id} {
+      allow read: if isAdmin();
+      allow create, update: if stamped()
+        && hasFields(['name', 'channel', 'trigger', 'preview'])
+        && validText(request.resource.data.preview, 2000);
+      allow delete: if false;
+    }
+
+    match /packages/{id} {
+      allow read: if signedIn();
+      allow create, update: if stamped() && hasFields(['city', 'packages']) && request.resource.data.packages is list;
+      allow delete: if isAdmin();
+    }
+
+    match /faqs/{id} {
+      allow read: if signedIn();
+      allow create, update: if stamped() && hasFields(['question', 'answer']);
+      allow delete: if isAdmin();
+    }
+
+    // One document, config/app: hold length, buffers, advance %, contact numbers.
+    match /config/{id} {
+      allow read: if signedIn();
+      allow create, update: if stamped()
+        && hasFields(['holdMinutes', 'defaultAdvancePercent', 'capacities'])
+        && request.resource.data.holdMinutes is int
+        && request.resource.data.holdMinutes >= 1 && request.resource.data.holdMinutes <= 1440
+        && request.resource.data.defaultAdvancePercent is int
+        && request.resource.data.defaultAdvancePercent >= 0 && request.resource.data.defaultAdvancePercent <= 100
+        && request.resource.data.capacities is list;
+      allow delete: if false;
+    }
+
+    // Written only by the server (functions/src/audit.ts) when a staff write
+    // lands, so it cannot be skipped or forged from the app.
+    match /auditLog/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // A customer's last searched locations.
+    match /users/{uid}/recents/{locationId} {
+      allow read, delete: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['at'])
+        && request.resource.data.at == request.time;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

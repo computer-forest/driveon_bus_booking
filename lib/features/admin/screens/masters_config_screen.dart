@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/utils/guarded_write.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../core/widgets/async_body.dart';
@@ -59,17 +60,20 @@ class _ConfigFormState extends ConsumerState<_ConfigForm> {
 
   Future<void> _save() async {
     final percent = int.tryParse(_advancePercent.text.trim());
-    await ref.read(configRepositoryProvider).save(
-          widget.initial.copyWith(
-            holdMinutes: _holdMinutes.round(),
-            preBufferMinutes: _preBuffer.round(),
-            postBufferMinutes: _postBuffer.round(),
-            defaultAdvancePercent: percent?.clamp(0, 100),
-            supportPhone: _supportPhone.text.trim(),
-            whatsappNumber: _whatsapp.text.trim(),
+    final saved = await guardedWrite(
+      context,
+      () => ref.read(configRepositoryProvider).save(
+            widget.initial.copyWith(
+              holdMinutes: _holdMinutes.round(),
+              preBufferMinutes: _preBuffer.round(),
+              postBufferMinutes: _postBuffer.round(),
+              defaultAdvancePercent: percent?.clamp(0, 100),
+              supportPhone: _supportPhone.text.trim(),
+              whatsappNumber: _whatsapp.text.trim(),
+            ),
           ),
-        );
-    if (!mounted) return;
+    );
+    if (!saved || !mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('Configuration saved.')));
   }
@@ -108,16 +112,22 @@ class _ConfigFormState extends ConsumerState<_ConfigForm> {
     city.dispose();
     area.dispose();
     if (added != true || cityName.isEmpty || areaName.isEmpty) return;
-    await ref.read(locationRepositoryProvider).add(
-          LocationEntry(id: newId('loc'), city: cityName, area: areaName),
-        );
+    if (!mounted) return;
+    await guardedWrite(
+      context,
+      () => ref.read(locationRepositoryProvider).add(
+            LocationEntry(id: newId('loc'), city: cityName, area: areaName),
+          ),
+    );
   }
 
   Future<void> _removeCity(String city, List<LocationEntry> all) async {
     final repo = ref.read(locationRepositoryProvider);
-    for (final l in all.where((l) => l.city == city)) {
-      await repo.remove(l.id);
-    }
+    await guardedWrite(context, () async {
+      for (final l in all.where((l) => l.city == city)) {
+        await repo.remove(l.id);
+      }
+    });
   }
 
   @override

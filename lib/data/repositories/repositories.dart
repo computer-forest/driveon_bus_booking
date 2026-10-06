@@ -58,6 +58,9 @@ abstract class LocationRepository {
 
   /// The signed-in customer's most recent searches, newest first.
   Stream<List<LocationEntry>> watchRecent();
+
+  /// Remembers [location] as a recent search for the signed-in customer.
+  Future<void> markRecent(LocationEntry location);
   Future<void> add(LocationEntry location);
   Future<void> remove(String id);
 }
@@ -67,9 +70,9 @@ abstract class TemplateRepository {
   Future<void> save(MessageTemplate template);
 }
 
+/// Read-only for the app: the server writes an entry for every staff write.
 abstract class AuditRepository {
   Stream<List<AuditEntry>> watchAll();
-  Future<void> append(AuditEntry entry);
 }
 
 abstract class NotificationRepository {

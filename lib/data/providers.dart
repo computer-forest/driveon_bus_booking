@@ -11,8 +11,10 @@ import 'repositories/mock_repositories.dart';
 import 'repositories/repositories.dart';
 
 /// The app's single seam to its backend. Today every repository is the
-/// in-memory mock. In Stage 1 and 2 these providers return Firestore-backed
-/// implementations instead, and no screen changes.
+/// in-memory mock; with Firebase on, main.dart overrides the master-data ones
+/// with the Firestore implementations (see firebase_overrides.dart) and no
+/// screen changes. Bookings, payments, notifications and reports are still
+/// in memory until their stages.
 
 final mockBackendProvider = Provider<MockBackend>((ref) => MockBackend());
 
@@ -29,7 +31,10 @@ final vendorRepositoryProvider =
 final driverRepositoryProvider =
     Provider<DriverRepository>((ref) => MockDriverRepository(ref.watch(mockBackendProvider)));
 final bookingRepositoryProvider =
-    Provider<BookingRepository>((ref) => MockBookingRepository(ref.watch(mockBackendProvider)));
+    Provider<BookingRepository>((ref) => MockBookingRepository(
+      ref.watch(mockBackendProvider),
+      blackouts: ref.watch(blackoutRepositoryProvider),
+    ));
 final blackoutRepositoryProvider =
     Provider<BlackoutRepository>((ref) => MockBlackoutRepository(ref.watch(mockBackendProvider)));
 final locationRepositoryProvider =
