@@ -147,6 +147,8 @@ class FirebaseAuthRepository implements AuthRepository {
       throw AuthException(switch (e.code) {
         'permission-denied' => staff ? AuthMessages.notStaff : AuthMessages.serverVerification,
         _ when offline.contains(e.code) => AuthMessages.noInternet,
+        // Our own fault (a misconfigured permission, a crash): the number is not the problem.
+        'internal' || 'unknown' || 'unimplemented' || 'data-loss' => AuthMessages.serverProblem,
         _ => AuthMessages.serverVerification,
       });
     } on FirebaseAuthException catch (e) {

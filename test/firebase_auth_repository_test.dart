@@ -11,12 +11,14 @@ import 'package:charter_booking_ui/features/auth/data/secure_store.dart';
 class FakeFunctions implements BackendFunctions {
   bool reject = false;
   bool notOnStaffList = false;
+  String? failWithCode;
   bool deleted = false;
   final List<String> exchanged = [];
 
   @override
   Future<String> exchangeMsg91Token({required String accessToken, required String phone, required bool staff}) async {
     if (reject) throw const AuthException("We couldn't verify your number. Please try again.");
+    if (failWithCode != null) throw FirebaseFunctionsException(message: 'x', code: failWithCode!);
     if (staff && notOnStaffList) {
       throw FirebaseFunctionsException(message: 'denied', code: 'permission-denied');
     }
@@ -58,6 +60,15 @@ void main() {
       final doc = await firestore.doc('users/cust_919820011223').get();
       expect(doc.exists, isTrue);
       expect(doc.data()?['phone'], '98200 11223');
+    });
+
+    test('a fault on our side is not blamed on the number', () async {
+      functions.failWithCode = 'internal';
+      final auth = MockFirebaseAuth(mockUser: MockUser(uid: 'cust_919820011223'));
+      await expectLater(
+        repo(auth).signInWithOtpToken(phone: '9820011223', accessToken: 'tok'),
+        throwsA(isA<AuthException>().having((e) => e.message, 'message', contains('problem on our side'))),
+      );
     });
 
     test('a rejected token signs nobody in', () async {
