@@ -164,6 +164,21 @@ void main() {
       expect(find.text('Mobile number must be exactly 10 digits.'), findsOneWidget);
     });
 
+    testWidgets('the code field that catches typing draws no border of its own, focused or not', (tester) async {
+      await launch(tester, store: InMemorySecureStore(), biometric: FakeBiometric());
+      await toOtpScreen(tester);
+
+      final field = tester.widget<TextField>(find.byType(TextField));
+      final d = field.decoration!;
+      for (final border in [d.border, d.enabledBorder, d.focusedBorder, d.disabledBorder, d.errorBorder, d.focusedErrorBorder]) {
+        expect(border, InputBorder.none);
+      }
+      expect(d.filled, isFalse);
+      // and what the theme would have drawn is not what is painted
+      final decorator = tester.widget<InputDecorator>(find.byType(InputDecorator).first);
+      expect(decorator.decoration.focusedBorder, InputBorder.none);
+    });
+
     testWidgets('the number shows with its country code and can be edited', (tester) async {
       await launch(tester, store: InMemorySecureStore(), biometric: FakeBiometric());
       await toOtpScreen(tester);

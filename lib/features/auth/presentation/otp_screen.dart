@@ -304,7 +304,20 @@ class _OtpBoxes extends StatelessWidget {
               autofillHints: const [AutofillHints.oneTimeCode],
               inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(length)],
               style: const TextStyle(color: Colors.transparent),
-              decoration: const InputDecoration.collapsed(hintText: null),
+              // The theme draws a border and fill on every field, including on
+              // focus; this one is only a catcher for typing, so switch them all off.
+              decoration: const InputDecoration(
+                isCollapsed: true,
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                counterText: '',
+              ),
               onChanged: onChanged,
             ),
           ),
