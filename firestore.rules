@@ -87,7 +87,9 @@ service cloud.firestore {
         && request.resource.data.capacity > 0 && request.resource.data.capacity <= 100
         && request.resource.data.active is bool
         && request.resource.data.weeklyAvailability is list
-        && request.resource.data.weeklyAvailability.size() == 7;
+        && request.resource.data.weeklyAvailability.size() == 7
+        && request.resource.data.get('photos', []) is list
+        && request.resource.data.get('photos', []).size() <= 4;
       allow delete: if false;
     }
 

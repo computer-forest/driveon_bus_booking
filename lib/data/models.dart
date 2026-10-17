@@ -72,7 +72,8 @@ class AppConfig {
   Duration get postBuffer => Duration(minutes: postBufferMinutes);
 
   /// Advance owed for [totalFare], from the configured percentage.
-  int advanceFor(int totalFare) => (totalFare * defaultAdvancePercent / 100).round();
+  int advanceFor(int totalFare) =>
+      (totalFare * defaultAdvancePercent / 100).round();
 
   AppConfig copyWith({
     int? holdMinutes,
@@ -87,7 +88,8 @@ class AppConfig {
         holdMinutes: holdMinutes ?? this.holdMinutes,
         preBufferMinutes: preBufferMinutes ?? this.preBufferMinutes,
         postBufferMinutes: postBufferMinutes ?? this.postBufferMinutes,
-        defaultAdvancePercent: defaultAdvancePercent ?? this.defaultAdvancePercent,
+        defaultAdvancePercent:
+            defaultAdvancePercent ?? this.defaultAdvancePercent,
         supportPhone: supportPhone ?? this.supportPhone,
         whatsappNumber: whatsappNumber ?? this.whatsappNumber,
         capacities: capacities ?? this.capacities,
@@ -95,7 +97,8 @@ class AppConfig {
 }
 
 class DriverInfo {
-  const DriverInfo({required this.name, this.phone = '', required this.busNumber});
+  const DriverInfo(
+      {required this.name, this.phone = '', required this.busNumber});
 
   final String name;
 
@@ -187,7 +190,8 @@ class Booking {
   bool get isHold => stage == BookingStage.requested;
 
   /// Whether this booking still takes its bus: not cancelled or expired.
-  bool get occupiesBus => stage != BookingStage.expired && stage != BookingStage.cancelled;
+  bool get occupiesBus =>
+      stage != BookingStage.expired && stage != BookingStage.cancelled;
 
   /// Whole seconds left on the hold at [now], never negative.
   int holdSecondsLeft(DateTime now) {
@@ -232,7 +236,11 @@ class Booking {
 /// services — locations are picked from this list plus a free-text
 /// landmark line).
 class LocationEntry {
-  const LocationEntry({this.id = '', required this.city, required this.area, this.saved = false});
+  const LocationEntry(
+      {this.id = '',
+      required this.city,
+      required this.area,
+      this.saved = false});
   final String id;
   final String city;
   final String area;
@@ -283,7 +291,9 @@ class DayAvailability {
   final TimeOfDay start;
   final TimeOfDay end;
 
-  DayAvailability copyWith({bool? available, TimeOfDay? start, TimeOfDay? end}) => DayAvailability(
+  DayAvailability copyWith(
+          {bool? available, TimeOfDay? start, TimeOfDay? end}) =>
+      DayAvailability(
         available: available ?? this.available,
         start: start ?? this.start,
         end: end ?? this.end,
@@ -306,7 +316,7 @@ class BusRecord {
     this.driverId,
     this.gpsLink,
     this.amenities = const [],
-    this.photoCount = 4,
+    this.photos = const [],
   });
 
   final String id;
@@ -327,9 +337,42 @@ class BusRecord {
   /// Exactly 7 entries, index 0 = Monday, so `weeklyAvailability[d.weekday - 1]`.
   final List<DayAvailability> weeklyAvailability;
   final List<String> amenities;
-  final int photoCount;
+
+  /// Up to [maxPhotos] pictures, the first being the cover. Empty until staff
+  /// add some, in which case customers see a neutral bus picture.
+  final List<BusPhoto> photos;
+
+  static const maxPhotos = 4;
+
+  int get photoCount => photos.length;
+  BusPhoto? get cover => photos.isEmpty ? null : photos.first;
 
   String get label => '$regNumber · $capacity seater';
+}
+
+/// One bus picture, in two sizes. The files are immutable (a new upload always
+/// gets a new id), which is what lets phones cache them for a year.
+class BusPhoto {
+  const BusPhoto(
+      {required this.id, required this.fullUrl, required this.thumbUrl});
+
+  final String id;
+
+  /// About 1280 px on the long side, for the bus page.
+  final String fullUrl;
+
+  /// About 360 px, for lists.
+  final String thumbUrl;
+
+  @override
+  bool operator ==(Object other) =>
+      other is BusPhoto &&
+      other.id == id &&
+      other.fullUrl == fullUrl &&
+      other.thumbUrl == thumbUrl;
+
+  @override
+  int get hashCode => Object.hash(id, fullUrl, thumbUrl);
 }
 
 class DriverRecord {
@@ -387,8 +430,9 @@ class SearchCriteria {
 
   /// On a round trip the bus stays with the customer throughout, so the
   /// hold runs to the return instant rather than the outbound drop.
-  DateTime get endsAt =>
-      isRoundTrip ? combineDateTime(returnDate, returnTime) : combineDateTime(dropDate, dropTime);
+  DateTime get endsAt => isRoundTrip
+      ? combineDateTime(returnDate, returnTime)
+      : combineDateTime(dropDate, dropTime);
 }
 
 /// One destination on a fixed-rate outstation package chart.
@@ -607,7 +651,10 @@ class CancellationRequest {
   final String decisionNote;
   final int refundAmount;
 
-  CancellationRequest copyWith({CancellationStatus? status, String? decisionNote, int? refundAmount}) =>
+  CancellationRequest copyWith(
+          {CancellationStatus? status,
+          String? decisionNote,
+          int? refundAmount}) =>
       CancellationRequest(
         id: id,
         bookingId: bookingId,

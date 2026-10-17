@@ -261,3 +261,33 @@ today / the last 7 days / the last 30 days.
 
 Tests now: `cd rules-tests && npm test` (29 rules) and `npm run e2e` (39,
 including notifications, hold warnings, refunds and account deletion).
+
+## Bus photos
+
+Staff add up to 4 photos per bus on the Add/Edit bus form (camera or gallery).
+Cost is driven by download traffic, so the design sends customers as few bytes
+as possible, once per phone:
+
+- **Shrunk on the staff phone** (`lib/features/admin/photos/photo_processor.dart`,
+  pure Dart in a background isolate): a 1280 px picture (about 150-300 KB) and a
+  360 px thumbnail (about 20-40 KB), JPEG, rotated upright, all metadata (including
+  the GPS position) removed. No server-side resizing to pay for.
+- **Never overwritten:** every upload gets a new file name, and files carry
+  `Cache-Control: public, max-age=31536000, immutable`, so a phone keeps one for a
+  year and never asks again.
+- **Lists use the thumbnail, the bus page uses the full picture**, and the bus page
+  only fetches the next picture once the customer starts swiping.
+- **Phone cache:** `cached_network_image` with one shared manager
+  (`lib/features/shared/bus_photo.dart`): 60 days, at most 200 files; decoded at the
+  size shown. Photo URLs live on the bus document, so previously seen buses still
+  show their pictures offline.
+- **Tidying:** a trigger deletes the files of a photo removed from a bus, and a weekly
+  sweep deletes files no bus refers to that are over a day old
+  (`functions/src/busPhotos.ts`). Do not set a "delete everything older than N days"
+  rule on the functions image registry (it once deleted the functions themselves).
+- **Rules:** `storage.rules` lets any signed-in user read; only staff may add or
+  delete, only JPEGs under 700 KB with a photo-shaped name, and never over an
+  existing file. `buses` documents may hold at most 4 photos.
+
+Tests: `cd rules-tests && npm run test:storage` (9) and `npm run e2e` (44, incl.
+cleanup). A bus with no photos shows a neutral bus picture.

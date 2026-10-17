@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../data/models.dart';
 import '../../../data/providers.dart';
+import '../../shared/bus_photo.dart';
 import '../widgets/admin_bottom_nav.dart';
 import 'booking_queue_screen.dart';
 import 'bus_calendar_screen.dart';
@@ -34,16 +36,20 @@ class _BusListScreenState extends ConsumerState<BusListScreen> {
   void _onNavTap(int index) {
     switch (index) {
       case 0:
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const BookingQueueScreen()));
+        Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const BookingQueueScreen()));
       case 1:
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const BusCalendarScreen()));
+        Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const BusCalendarScreen()));
       case 3:
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const ReportsScreen()));
+        Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const ReportsScreen()));
     }
   }
 
   void _openForm([BusRecord? bus]) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => BusFormScreen(bus: bus)));
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => BusFormScreen(bus: bus)));
   }
 
   /// Matches the reg number first, but every other detail on the row too,
@@ -81,18 +87,21 @@ class _BusListScreenState extends ConsumerState<BusListScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, 0),
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, 0),
               child: TextField(
                 controller: _controller,
                 onChanged: (v) => setState(() => _query = v),
                 style: textTheme.bodyLarge,
                 decoration: InputDecoration(
                   hintText: 'Search bus number, vendor, city…',
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.textTertiary),
+                  prefixIcon: const Icon(Icons.search_rounded,
+                      size: 20, color: AppColors.textTertiary),
                   suffixIcon: _query.isEmpty
                       ? null
                       : IconButton(
-                          icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textTertiary),
+                          icon: const Icon(Icons.close_rounded,
+                              size: 18, color: AppColors.textTertiary),
                           onPressed: () {
                             _controller.clear();
                             setState(() => _query = '');
@@ -106,44 +115,73 @@ class _BusListScreenState extends ConsumerState<BusListScreen> {
                   ? Padding(
                       padding: const EdgeInsets.only(top: AppSpacing.xxl),
                       child: Text('No bus matches "$_query"',
-                          style: textTheme.bodyMedium, textAlign: TextAlign.center),
+                          style: textTheme.bodyMedium,
+                          textAlign: TextAlign.center),
                     )
                   : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.huge),
+                      padding: const EdgeInsets.fromLTRB(AppSpacing.xl,
+                          AppSpacing.lg, AppSpacing.xl, AppSpacing.huge),
                       itemCount: buses.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(height: AppSpacing.md),
                       itemBuilder: (context, i) {
                         final bus = buses[i];
                         return AppCard(
                           onTap: () => _openForm(bus),
-                          child: Column(
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Expanded(child: Text(bus.regNumber, style: textTheme.titleSmall)),
-                                  StatusBadge(
-                                    label: bus.active ? 'Active' : 'Inactive',
-                                    tone: bus.active ? StatusTone.success : StatusTone.neutral,
-                                  ),
-                                ],
+                              ClipRRect(
+                                borderRadius: AppRadius.controlRadius,
+                                child: SizedBox(
+                                  width: 56,
+                                  height: 56,
+                                  child: BusPhotoView(
+                                      url: bus.cover?.thumbUrl,
+                                      decodeWidth: 56),
+                                ),
                               ),
-                              const SizedBox(height: 2),
-                              Text('${bus.vendorName} · ${bus.capacity} seater · ${bus.seatType}',
-                                  style: textTheme.bodyMedium),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  if (bus.ac) ...[
-                                    const StatusBadge(label: 'AC'),
-                                    const SizedBox(width: AppSpacing.sm)
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                            child: Text(bus.regNumber,
+                                                style: textTheme.titleSmall)),
+                                        StatusBadge(
+                                          label: bus.active
+                                              ? 'Active'
+                                              : 'Inactive',
+                                          tone: bus.active
+                                              ? StatusTone.success
+                                              : StatusTone.neutral,
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                        '${bus.vendorName} · ${bus.capacity} seater · ${bus.seatType}',
+                                        style: textTheme.bodyMedium),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        if (bus.ac) ...[
+                                          const StatusBadge(label: 'AC'),
+                                          const SizedBox(width: AppSpacing.sm)
+                                        ],
+                                        const Icon(Icons.person_outline_rounded,
+                                            size: 14,
+                                            color: AppColors.textTertiary),
+                                        const SizedBox(width: 2),
+                                        Text(bus.driverName,
+                                            style: textTheme.labelMedium),
+                                      ],
+                                    ),
                                   ],
-                                  const Icon(Icons.person_outline_rounded,
-                                      size: 14, color: AppColors.textTertiary),
-                                  const SizedBox(width: 2),
-                                  Text(bus.driverName, style: textTheme.labelMedium),
-                                ],
+                                ),
                               ),
                             ],
                           ),

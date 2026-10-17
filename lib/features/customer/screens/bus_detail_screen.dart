@@ -9,6 +9,7 @@ import '../../../core/widgets/status_badge.dart';
 import '../../../data/models.dart';
 import '../../../data/providers.dart';
 import '../../../data/repositories/repositories.dart';
+import '../widgets/bus_gallery.dart';
 import 'hold_screen.dart';
 
 /// Shared by the results list's "Select this bus" fast path and the bus
@@ -25,7 +26,8 @@ Future<void> confirmBusSelection(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
-    builder: (context) => _SelectionConfirmationSheet(bus: bus, routeSummary: criteria.summary),
+    builder: (context) =>
+        _SelectionConfirmationSheet(bus: bus, routeSummary: criteria.summary),
   );
   if (confirmed != true || !context.mounted) return;
 
@@ -40,7 +42,8 @@ Future<void> confirmBusSelection(
           criteria: criteria,
           customer: customer,
         );
-    navigator.push(MaterialPageRoute(builder: (_) => HoldScreen(booking: booking)));
+    navigator
+        .push(MaterialPageRoute(builder: (_) => HoldScreen(booking: booking)));
   } on BusUnavailableException catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(e.toString())));
   } on BookingException catch (e) {
@@ -66,28 +69,18 @@ class BusDetailScreen extends ConsumerWidget {
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.xl),
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.xl),
                 children: [
-                  ClipRRect(
-                    borderRadius: AppRadius.containerRadius,
-                    child: SizedBox(
-                      height: 180,
-                      child: PageView.builder(
-                        itemCount: bus.photoCount,
-                        itemBuilder: (context, i) => Container(
-                          color: AppColors.surface,
-                          alignment: Alignment.center,
-                          child: const Icon(Icons.directions_bus_filled_rounded, size: 56, color: AppColors.textTertiary),
-                        ),
-                      ),
-                    ),
-                  ),
+                  BusGallery(photos: bus.photos),
                   const SizedBox(height: AppSpacing.lg),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('${bus.capacity} seater', style: textTheme.headlineSmall),
-                      const StatusBadge(label: 'Available', tone: StatusTone.success),
+                      Text('${bus.capacity} seater',
+                          style: textTheme.headlineSmall),
+                      const StatusBadge(
+                          label: 'Available', tone: StatusTone.success),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -99,13 +92,16 @@ class BusDetailScreen extends ConsumerWidget {
                     runSpacing: AppSpacing.sm,
                     children: bus.amenities
                         .map((a) => Container(
-                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.md, vertical: 8),
                               decoration: BoxDecoration(
                                 color: AppColors.surface,
                                 borderRadius: AppRadius.controlRadius,
                                 border: Border.all(color: AppColors.border),
                               ),
-                              child: Text(a, style: textTheme.labelMedium?.copyWith(color: AppColors.textPrimary)),
+                              child: Text(a,
+                                  style: textTheme.labelMedium
+                                      ?.copyWith(color: AppColors.textPrimary)),
                             ))
                         .toList(),
                   ),
@@ -115,11 +111,14 @@ class BusDetailScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _infoRow(Icons.bolt_rounded, 'Held immediately on selection, before Admin confirms.'),
+                        _infoRow(Icons.bolt_rounded,
+                            'Held immediately on selection, before Admin confirms.'),
                         const SizedBox(height: AppSpacing.sm),
-                        _infoRow(Icons.call_outlined, "Our team calls within minutes to confirm the fare."),
+                        _infoRow(Icons.call_outlined,
+                            "Our team calls within minutes to confirm the fare."),
                         const SizedBox(height: AppSpacing.sm),
-                        _infoRow(Icons.payments_outlined, 'No payment happens in the app.'),
+                        _infoRow(Icons.payments_outlined,
+                            'No payment happens in the app.'),
                       ],
                     ),
                   ),
@@ -127,10 +126,12 @@ class BusDetailScreen extends ConsumerWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.xl),
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.xl),
               child: PrimaryButton(
                 label: 'Select this bus',
-                onPressed: () => confirmBusSelection(context, ref, bus: bus, criteria: criteria),
+                onPressed: () => confirmBusSelection(context, ref,
+                    bus: bus, criteria: criteria),
               ),
             ),
           ],
@@ -146,7 +147,8 @@ class BusDetailScreen extends ConsumerWidget {
         children: [
           Icon(icon, size: 17, color: AppColors.textSecondary),
           const SizedBox(width: AppSpacing.sm),
-          Expanded(child: Text(text, style: Theme.of(context).textTheme.bodyMedium)),
+          Expanded(
+              child: Text(text, style: Theme.of(context).textTheme.bodyMedium)),
         ],
       );
     });
@@ -154,7 +156,8 @@ class BusDetailScreen extends ConsumerWidget {
 }
 
 class _SelectionConfirmationSheet extends StatelessWidget {
-  const _SelectionConfirmationSheet({required this.bus, required this.routeSummary});
+  const _SelectionConfirmationSheet(
+      {required this.bus, required this.routeSummary});
 
   final BusRecord bus;
   final String routeSummary;
@@ -182,7 +185,9 @@ class _SelectionConfirmationSheet extends StatelessWidget {
               width: 36,
               height: 4,
               margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2)),
             ),
           ),
           Text('Hold this bus?', style: textTheme.headlineSmall),
@@ -192,9 +197,13 @@ class _SelectionConfirmationSheet extends StatelessWidget {
             style: textTheme.bodyMedium,
           ),
           const SizedBox(height: AppSpacing.xl),
-          PrimaryButton(label: 'Hold this bus', onPressed: () => Navigator.of(context).pop(true)),
+          PrimaryButton(
+              label: 'Hold this bus',
+              onPressed: () => Navigator.of(context).pop(true)),
           const SizedBox(height: AppSpacing.sm),
-          SecondaryButton(label: 'Not now', onPressed: () => Navigator.of(context).pop(false)),
+          SecondaryButton(
+              label: 'Not now',
+              onPressed: () => Navigator.of(context).pop(false)),
         ],
       ),
     );

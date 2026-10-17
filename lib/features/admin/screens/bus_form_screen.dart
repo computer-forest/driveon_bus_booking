@@ -10,6 +10,8 @@ import '../../../core/widgets/date_time_field.dart';
 import '../../../data/ids.dart';
 import '../../../data/models.dart';
 import '../../../data/providers.dart';
+import '../../../data/repositories/photo_repository.dart';
+import '../photos/bus_photo_editor.dart';
 
 /// BUS-01: vendor selection is mandatory before anything else on this
 /// form — a bus cannot exist without a vendor. The driver and the weekly
@@ -31,11 +33,19 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
   static const _capacities = [17, 20, 27, 30, 35, 40];
   static const _seatTypes = ['Pushback', 'Highback', 'Basic'];
   static const _dayNames = [
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
   ];
 
-  late final _regNumber = TextEditingController(text: widget.bus?.regNumber ?? '');
-  late final _baseCity = TextEditingController(text: widget.bus?.baseCity ?? '');
+  late final _regNumber =
+      TextEditingController(text: widget.bus?.regNumber ?? '');
+  late final _baseCity =
+      TextEditingController(text: widget.bus?.baseCity ?? '');
   late final _gpsLink = TextEditingController(text: widget.bus?.gpsLink ?? '');
   final _newDriverName = TextEditingController();
   final _newDriverPhone = TextEditingController();
@@ -48,11 +58,40 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
   late bool _active = widget.bus?.active ?? true;
   late String _driver = widget.bus?.driverId ?? _unassigned;
   late final List<DayAvailability> _week = List<DayAvailability>.from(
-    widget.bus?.weeklyAvailability ?? List.filled(7, const DayAvailability(available: true)),
+    widget.bus?.weeklyAvailability ??
+        List.filled(7, const DayAvailability(available: true)),
   );
+
+  // The bus has its id from the moment the form opens, so photos can be
+  // uploaded under it before the first save.
+  late final String _busId = widget.bus?.id ?? newId('bus');
+  late List<BusPhoto> _photos =
+      List<BusPhoto>.of(widget.bus?.photos ?? const []);
+  bool _photosBusy = false;
+
+  /// Files uploaded in this session and not yet saved on the bus. If the form
+  /// is abandoned, or one of them is removed, they are deleted again.
+  final Set<BusPhoto> _unsaved = {};
+  bool _saved = false;
+  // Looked up when the form opens: a provider cannot be read while the form is closing.
+  late final PhotoRepository _photoRepo;
+
+  @override
+  void initState() {
+    super.initState();
+    _photoRepo = ref.read(photoRepositoryProvider);
+  }
 
   bool get _isEdit => widget.bus != null;
   bool get _addingDriver => _driver == _addNewDriver;
+
+  void _photoRemoved(BusPhoto photo) {
+    // Never saved: nothing refers to it, so the files can go now. A photo that
+    // is already on the bus is removed by the server once the save lands.
+    if (_unsaved.remove(photo)) {
+      _photoRepo.discard(_busId, photo).catchError((Object _) {});
+    }
+  }
 
   @override
   void dispose() {
@@ -62,16 +101,26 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
     _newDriverName.dispose();
     _newDriverPhone.dispose();
     _newDriverLicence.dispose();
+    if (!_saved) {
+      for (final photo in _unsaved) {
+        _photoRepo.discard(_busId, photo).catchError((Object _) {});
+      }
+    }
     super.dispose();
   }
 
-  List<DriverRecord> get _vendorDrivers =>
-      ref.watch(driversProvider).items.where((d) => d.vendorId == _vendorId).toList();
+  List<DriverRecord> get _vendorDrivers => ref
+      .watch(driversProvider)
+      .items
+      .where((d) => d.vendorId == _vendorId)
+      .toList();
 
   bool get _canSave {
+    if (_photosBusy) return false;
     if (_vendorId == null || _regNumber.text.trim().isEmpty) return false;
     if (_addingDriver) {
-      return _newDriverName.text.trim().isNotEmpty && _newDriverPhone.text.trim().isNotEmpty;
+      return _newDriverName.text.trim().isNotEmpty &&
+          _newDriverPhone.text.trim().isNotEmpty;
     }
     return true;
   }
@@ -85,7 +134,8 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
   }
 
   Future<void> _save() async {
-    final vendor = ref.read(vendorsProvider).items.firstWhere((v) => v.id == _vendorId);
+    final vendor =
+        ref.read(vendorsProvider).items.firstWhere((v) => v.id == _vendorId);
     final drivers = ref.read(driversProvider).items;
 
     String? driverId;
@@ -112,7 +162,7 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
 
     final gps = _gpsLink.text.trim();
     final record = BusRecord(
-      id: widget.bus?.id ?? newId('bus'),
+      id: _busId,
       regNumber: _regNumber.text.trim(),
       vendorId: vendor.id,
       vendorName: vendor.name,
@@ -126,14 +176,17 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
       gpsLink: gps.isEmpty ? null : gps,
       weeklyAvailability: _week,
       amenities: widget.bus?.amenities ?? [if (_ac) 'AC', '$_seatType seats'],
-      photoCount: widget.bus?.photoCount ?? 4,
+      photos: _photos,
     );
     // A new driver is saved first so the bus never points at one that is not there.
     final saved = await guardedWrite(context, () async {
-      if (newDriver != null) await ref.read(driverRepositoryProvider).upsert(newDriver);
+      if (newDriver != null) {
+        await ref.read(driverRepositoryProvider).upsert(newDriver);
+      }
       await ref.read(busRepositoryProvider).upsert(record);
     });
 
+    if (saved) _saved = true;
     if (saved && mounted) Navigator.of(context).pop();
   }
 
@@ -144,7 +197,8 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
       appBar: AppBar(title: Text(_isEdit ? 'Edit bus' : 'Add bus')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.xl),
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.xl),
           children: [
             const SectionLabel('Vendor'),
             _dropdown<String>(
@@ -154,7 +208,8 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
                   .watch(vendorsProvider)
                   .items
                   .where((v) => v.active)
-                  .map((v) => DropdownMenuItem(value: v.id, child: Text(v.name)))
+                  .map(
+                      (v) => DropdownMenuItem(value: v.id, child: Text(v.name)))
                   .toList(),
               onChanged: (v) => setState(() {
                 _vendorId = v;
@@ -175,7 +230,8 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
               children: _capacities
-                  .map((c) => _chip('$c', c == _capacity, () => setState(() => _capacity = c)))
+                  .map((c) => _chip('$c', c == _capacity,
+                      () => setState(() => _capacity = c)))
                   .toList(),
             ),
             const SizedBox(height: AppSpacing.xl),
@@ -183,15 +239,21 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
             Wrap(
               spacing: AppSpacing.sm,
               children: _seatTypes
-                  .map((s) => _chip(s, s == _seatType, () => setState(() => _seatType = s)))
+                  .map((s) => _chip(
+                      s, s == _seatType, () => setState(() => _seatType = s)))
                   .toList(),
             ),
             const SizedBox(height: AppSpacing.lg),
             AppCard(
               child: Row(
                 children: [
-                  Expanded(child: Text('Air conditioned', style: textTheme.titleSmall)),
-                  Switch(value: _ac, activeThumbColor: AppColors.primary, onChanged: (v) => setState(() => _ac = v)),
+                  Expanded(
+                      child:
+                          Text('Air conditioned', style: textTheme.titleSmall)),
+                  Switch(
+                      value: _ac,
+                      activeThumbColor: AppColors.primary,
+                      onChanged: (v) => setState(() => _ac = v)),
                 ],
               ),
             ),
@@ -201,19 +263,25 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
               value: _driver,
               hint: 'Select driver',
               items: [
-                const DropdownMenuItem(value: _unassigned, child: Text(_unassigned)),
+                const DropdownMenuItem(
+                    value: _unassigned, child: Text(_unassigned)),
                 for (final d in _vendorDrivers)
-                  DropdownMenuItem(value: d.id, child: Text('${d.name} · ${d.phone}')),
+                  DropdownMenuItem(
+                      value: d.id, child: Text('${d.name} · ${d.phone}')),
                 const DropdownMenuItem(
                   value: _addNewDriver,
-                  child: Text('+ Add new driver', style: TextStyle(color: AppColors.primary)),
+                  child: Text('+ Add new driver',
+                      style: TextStyle(color: AppColors.primary)),
                 ),
               ],
-              onChanged: _vendorId == null ? null : (v) => setState(() => _driver = v ?? _unassigned),
+              onChanged: _vendorId == null
+                  ? null
+                  : (v) => setState(() => _driver = v ?? _unassigned),
             ),
             if (_vendorId == null) ...[
               const SizedBox(height: AppSpacing.sm),
-              Text('Pick a vendor first — drivers are listed per vendor.', style: textTheme.labelMedium),
+              Text('Pick a vendor first — drivers are listed per vendor.',
+                  style: textTheme.labelMedium),
             ],
             if (_addingDriver) ...[
               const SizedBox(height: AppSpacing.lg),
@@ -230,7 +298,9 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: AppSpacing.lg),
-              LabeledField(label: 'Driving licence (optional)', controller: _newDriverLicence),
+              LabeledField(
+                  label: 'Driving licence (optional)',
+                  controller: _newDriverLicence),
             ],
             const SizedBox(height: AppSpacing.xl),
             SectionLabel(
@@ -239,11 +309,13 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
                 onTap: _applyMondayToAllDays,
                 borderRadius: AppRadius.tagRadius,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xs, vertical: 2),
                   child: Text(
                     'Apply to all days',
                     overflow: TextOverflow.ellipsis,
-                    style: textTheme.labelMedium?.copyWith(color: AppColors.primary),
+                    style: textTheme.labelMedium
+                        ?.copyWith(color: AppColors.primary),
                   ),
                 ),
               ),
@@ -255,25 +327,19 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
             const SizedBox(height: AppSpacing.md),
             for (var i = 0; i < 7; i++) _dayRow(i),
             const SizedBox(height: AppSpacing.lg),
-            LabeledField(label: 'GPS link', controller: _gpsLink, hint: 'https://...'),
+            LabeledField(
+                label: 'GPS link', controller: _gpsLink, hint: 'https://...'),
             const SizedBox(height: AppSpacing.lg),
             const SectionLabel('Photographs (up to 4)'),
-            Row(
-              children: List.generate(4, (i) {
-                return Padding(
-                  padding: EdgeInsets.only(right: i == 3 ? 0 : AppSpacing.sm),
-                  child: Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: AppRadius.controlRadius,
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: const Icon(Icons.add_a_photo_outlined, size: 20, color: AppColors.textTertiary),
-                  ),
-                );
-              }),
+            BusPhotoEditor(
+              busId: _busId,
+              photos: _photos,
+              onChanged: (photos) => setState(() => _photos = photos),
+              onBusyChanged: (busy) {
+                if (_photosBusy != busy) setState(() => _photosBusy = busy);
+              },
+              onUploaded: _unsaved.add,
+              onDiscarded: _photoRemoved,
             ),
             if (_isEdit) ...[
               const SizedBox(height: AppSpacing.xl),
@@ -285,18 +351,25 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Active', style: textTheme.titleSmall),
-                          Text('Deactivating removes this bus from search immediately.', style: textTheme.labelMedium),
+                          Text(
+                              'Deactivating removes this bus from search immediately.',
+                              style: textTheme.labelMedium),
                         ],
                       ),
                     ),
-                    Switch(value: _active, activeThumbColor: AppColors.primary, onChanged: (v) => setState(() => _active = v)),
+                    Switch(
+                        value: _active,
+                        activeThumbColor: AppColors.primary,
+                        onChanged: (v) => setState(() => _active = v)),
                   ],
                 ),
               ),
             ],
             const SizedBox(height: AppSpacing.xxl),
             PrimaryButton(
-              label: _isEdit ? 'Save changes' : 'Add bus',
+              label: _photosBusy
+                  ? 'Uploading photos…'
+                  : (_isEdit ? 'Save changes' : 'Add bus'),
               onPressed: _canSave ? _save : null,
             ),
           ],
@@ -311,12 +384,15 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: AppCard(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg, vertical: AppSpacing.md),
         child: Column(
           children: [
             Row(
               children: [
-                SizedBox(width: 96, child: Text(_dayNames[index], style: textTheme.titleSmall)),
+                SizedBox(
+                    width: 96,
+                    child: Text(_dayNames[index], style: textTheme.titleSmall)),
                 Expanded(
                   child: day.available
                       ? const SizedBox.shrink()
@@ -325,7 +401,8 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
                 Switch(
                   value: day.available,
                   activeThumbColor: AppColors.primary,
-                  onChanged: (v) => setState(() => _week[index] = day.copyWith(available: v)),
+                  onChanged: (v) =>
+                      setState(() => _week[index] = day.copyWith(available: v)),
                 ),
               ],
             ),
@@ -338,7 +415,8 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
                     child: TimeField(
                       label: 'From',
                       value: day.start,
-                      onChanged: (t) => setState(() => _week[index] = day.copyWith(start: t)),
+                      onChanged: (t) =>
+                          setState(() => _week[index] = day.copyWith(start: t)),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
@@ -346,7 +424,8 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
                     child: TimeField(
                       label: 'To',
                       value: day.end,
-                      onChanged: (t) => setState(() => _week[index] = day.copyWith(end: t)),
+                      onChanged: (t) =>
+                          setState(() => _week[index] = day.copyWith(end: t)),
                     ),
                   ),
                 ],
@@ -392,8 +471,8 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
       selected: selected,
       onSelected: (_) => onTap(),
       selectedColor: AppColors.primary,
-      labelStyle: textTheme.labelMedium
-          ?.copyWith(color: selected ? AppColors.onPrimary : AppColors.textPrimary),
+      labelStyle: textTheme.labelMedium?.copyWith(
+          color: selected ? AppColors.onPrimary : AppColors.textPrimary),
       side: BorderSide(color: selected ? AppColors.primary : AppColors.border),
       showCheckmark: false,
     );

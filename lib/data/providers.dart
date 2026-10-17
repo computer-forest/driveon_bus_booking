@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../features/admin/photos/photo_picker.dart';
+import '../features/admin/photos/photo_processor.dart';
 import '../features/auth/data/auth_config.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/auth/data/biometric_service.dart';
@@ -10,6 +12,7 @@ import 'mock_data.dart';
 import 'reports.dart';
 import 'models.dart';
 import 'repositories/mock_repositories.dart';
+import 'repositories/photo_repository.dart';
 import 'repositories/repositories.dart';
 
 /// The app's single seam to its backend. Today every repository is the
@@ -22,41 +25,60 @@ final mockBackendProvider = Provider<MockBackend>((ref) => MockBackend());
 
 /// "Now" for the whole app. Pinned to the seed data's day so the prototype
 /// stays coherent; becomes `DateTime.now` when real data replaces the seeds.
-final clockProvider = Provider<DateTime Function()>((ref) => () => MockData.now);
+final clockProvider =
+    Provider<DateTime Function()>((ref) => () => MockData.now);
 
 // --- repositories --------------------------------------------------------
 
-final busRepositoryProvider =
-    Provider<BusRepository>((ref) => MockBusRepository(ref.watch(mockBackendProvider)));
-final vendorRepositoryProvider =
-    Provider<VendorRepository>((ref) => MockVendorRepository(ref.watch(mockBackendProvider)));
-final driverRepositoryProvider =
-    Provider<DriverRepository>((ref) => MockDriverRepository(ref.watch(mockBackendProvider)));
-final bookingRepositoryProvider =
-    Provider<BookingRepository>((ref) => MockBookingRepository(ref.watch(mockBackendProvider)));
-final searchRepositoryProvider =
-    Provider<SearchRepository>((ref) => MockSearchRepository(ref.watch(mockBackendProvider)));
-final blackoutRepositoryProvider =
-    Provider<BlackoutRepository>((ref) => MockBlackoutRepository(ref.watch(mockBackendProvider)));
-final locationRepositoryProvider =
-    Provider<LocationRepository>((ref) => MockLocationRepository(ref.watch(mockBackendProvider)));
-final templateRepositoryProvider =
-    Provider<TemplateRepository>((ref) => MockTemplateRepository(ref.watch(mockBackendProvider)));
-final auditRepositoryProvider =
-    Provider<AuditRepository>((ref) => MockAuditRepository(ref.watch(mockBackendProvider)));
+final busRepositoryProvider = Provider<BusRepository>(
+    (ref) => MockBusRepository(ref.watch(mockBackendProvider)));
+final vendorRepositoryProvider = Provider<VendorRepository>(
+    (ref) => MockVendorRepository(ref.watch(mockBackendProvider)));
+final driverRepositoryProvider = Provider<DriverRepository>(
+    (ref) => MockDriverRepository(ref.watch(mockBackendProvider)));
+final bookingRepositoryProvider = Provider<BookingRepository>(
+    (ref) => MockBookingRepository(ref.watch(mockBackendProvider)));
+final searchRepositoryProvider = Provider<SearchRepository>(
+    (ref) => MockSearchRepository(ref.watch(mockBackendProvider)));
+final blackoutRepositoryProvider = Provider<BlackoutRepository>(
+    (ref) => MockBlackoutRepository(ref.watch(mockBackendProvider)));
+final locationRepositoryProvider = Provider<LocationRepository>(
+    (ref) => MockLocationRepository(ref.watch(mockBackendProvider)));
+final templateRepositoryProvider = Provider<TemplateRepository>(
+    (ref) => MockTemplateRepository(ref.watch(mockBackendProvider)));
+final auditRepositoryProvider = Provider<AuditRepository>(
+    (ref) => MockAuditRepository(ref.watch(mockBackendProvider)));
 final notificationRepositoryProvider = Provider<NotificationRepository>(
     (ref) => MockNotificationRepository(ref.watch(mockBackendProvider)));
-final contentRepositoryProvider = Provider<ContentRepository>((ref) => MockContentRepository());
-final packageRepositoryProvider = Provider<PackageRepository>((ref) => MockPackageRepository());
-final reportRepositoryProvider = Provider<ReportRepository>((ref) => MockReportRepository());
-final configRepositoryProvider =
-    Provider<ConfigRepository>((ref) => MockConfigRepository(ref.watch(mockBackendProvider)));
-final paymentRepositoryProvider =
-    Provider<PaymentRepository>((ref) => MockPaymentRepository(ref.watch(mockBackendProvider)));
-final ratingRepositoryProvider =
-    Provider<RatingRepository>((ref) => MockRatingRepository(ref.watch(mockBackendProvider)));
+final contentRepositoryProvider =
+    Provider<ContentRepository>((ref) => MockContentRepository());
+final packageRepositoryProvider =
+    Provider<PackageRepository>((ref) => MockPackageRepository());
+final reportRepositoryProvider =
+    Provider<ReportRepository>((ref) => MockReportRepository());
+final configRepositoryProvider = Provider<ConfigRepository>(
+    (ref) => MockConfigRepository(ref.watch(mockBackendProvider)));
+final paymentRepositoryProvider = Provider<PaymentRepository>(
+    (ref) => MockPaymentRepository(ref.watch(mockBackendProvider)));
+final ratingRepositoryProvider = Provider<RatingRepository>(
+    (ref) => MockRatingRepository(ref.watch(mockBackendProvider)));
 final cancellationRepositoryProvider = Provider<CancellationRepository>(
     (ref) => MockCancellationRepository(ref.watch(mockBackendProvider)));
+
+// --- bus photos ---------------------------------------------------------
+
+/// Shrinks a picked photo before upload. Replaced with a fake in tests.
+final photoProcessorProvider =
+    Provider<PhotoProcessor>((ref) => const ImagePackagePhotoProcessor());
+
+/// Camera and gallery. Replaced with a fake in tests.
+final photoPickerProvider =
+    Provider<PhotoPicker>((ref) => ImagePickerPhotoPicker());
+
+/// Where bus photos go. Demo mode keeps nothing; main.dart points it at
+/// Cloud Storage when Firebase is on.
+final photoRepositoryProvider =
+    Provider<PhotoRepository>((ref) => MockPhotoRepository());
 
 // --- sign-in -------------------------------------------------------------
 // The defaults are safe stand-ins (in-memory storage, fake OTP, no
@@ -64,22 +86,28 @@ final cancellationRepositoryProvider = Provider<CancellationRepository>(
 // real services.
 
 final authConfigProvider = Provider<AuthConfig>((ref) => const AuthConfig());
-final secureStoreProvider = Provider<SecureStore>((ref) => InMemorySecureStore());
+final secureStoreProvider =
+    Provider<SecureStore>((ref) => InMemorySecureStore());
 final otpServiceProvider = Provider<OtpService>((ref) => FakeOtpService());
-final biometricServiceProvider = Provider<BiometricService>((ref) => const UnsupportedBiometricService());
-final tokenVerifierProvider = Provider<TokenVerifier>((ref) => const LocalTokenVerifier());
-final biometricSettingsProvider = Provider<BiometricSettings>(
-    (ref) => BiometricSettings(ref.watch(secureStoreProvider), ref.watch(biometricServiceProvider)));
+final biometricServiceProvider =
+    Provider<BiometricService>((ref) => const UnsupportedBiometricService());
+final tokenVerifierProvider =
+    Provider<TokenVerifier>((ref) => const LocalTokenVerifier());
+final biometricSettingsProvider = Provider<BiometricSettings>((ref) =>
+    BiometricSettings(
+        ref.watch(secureStoreProvider), ref.watch(biometricServiceProvider)));
 
 /// Registers this phone for push notifications. Off until main.dart turns it
 /// on, so tests and demo mode never touch the messaging plugin.
-final pushServiceProvider = Provider<PushService>((ref) => const NoopPushService());
+final pushServiceProvider =
+    Provider<PushService>((ref) => const NoopPushService());
 
-final authRepositoryProvider = Provider<AuthRepository>((ref) => MockAuthRepository(
-      ref.watch(mockBackendProvider),
-      store: ref.watch(secureStoreProvider),
-      verifier: ref.watch(tokenVerifierProvider),
-    ));
+final authRepositoryProvider =
+    Provider<AuthRepository>((ref) => MockAuthRepository(
+          ref.watch(mockBackendProvider),
+          store: ref.watch(secureStoreProvider),
+          verifier: ref.watch(tokenVerifierProvider),
+        ));
 
 /// Set when a customer is sent back to OTP sign-in on purpose (biometrics
 /// locked, "Use OTP instead"). The welcome flow then skips the intro and
@@ -97,60 +125,75 @@ class AuthNoticeNotifier extends Notifier<AuthNotice?> {
   void clear() => state = null;
 }
 
-final authNoticeProvider = NotifierProvider<AuthNoticeNotifier, AuthNotice?>(AuthNoticeNotifier.new);
+final authNoticeProvider =
+    NotifierProvider<AuthNoticeNotifier, AuthNotice?>(AuthNoticeNotifier.new);
 
 /// Buses free for a trip, as decided by the backend. Keyed on the criteria
 /// object, which the results screen holds for as long as it is open.
-final searchResultsProvider = FutureProvider.autoDispose.family<List<BusRecord>, SearchCriteria>(
-  (ref, criteria) => ref.watch(searchRepositoryProvider).availableBuses(criteria),
+final searchResultsProvider =
+    FutureProvider.autoDispose.family<List<BusRecord>, SearchCriteria>(
+  (ref, criteria) =>
+      ref.watch(searchRepositoryProvider).availableBuses(criteria),
 );
 
 // --- live reads ----------------------------------------------------------
 
-final busesProvider = StreamProvider<List<BusRecord>>((ref) => ref.watch(busRepositoryProvider).watchAll());
-final vendorsProvider = StreamProvider<List<Vendor>>((ref) => ref.watch(vendorRepositoryProvider).watchAll());
-final driversProvider = StreamProvider<List<DriverRecord>>((ref) => ref.watch(driverRepositoryProvider).watchAll());
-final bookingsProvider = StreamProvider<List<Booking>>((ref) => ref.watch(bookingRepositoryProvider).watchAll());
-final blackoutsProvider =
-    StreamProvider<List<BlackoutEntry>>((ref) => ref.watch(blackoutRepositoryProvider).watchAll());
-final locationsProvider =
-    StreamProvider<List<LocationEntry>>((ref) => ref.watch(locationRepositoryProvider).watchAll());
-final recentLocationsProvider =
-    StreamProvider<List<LocationEntry>>((ref) => ref.watch(locationRepositoryProvider).watchRecent());
-final templatesProvider =
-    StreamProvider<List<MessageTemplate>>((ref) => ref.watch(templateRepositoryProvider).watchAll());
-final cancellationsProvider =
-    StreamProvider<List<CancellationRequest>>((ref) => ref.watch(cancellationRepositoryProvider).watchAll());
-final auditLogProvider = StreamProvider<List<AuditEntry>>((ref) => ref.watch(auditRepositoryProvider).watchAll());
-final notificationsProvider =
-    StreamProvider<List<AppNotification>>((ref) => ref.watch(notificationRepositoryProvider).watchAll());
-final faqsProvider = StreamProvider<List<FaqItem>>((ref) => ref.watch(contentRepositoryProvider).watchFaqs());
-final packagesProvider =
-    StreamProvider<List<PackageLocation>>((ref) => ref.watch(packageRepositoryProvider).watchAll());
-final allPaymentsProvider = StreamProvider<List<Payment>>((ref) => ref.watch(paymentRepositoryProvider).watchAll());
-final searchMissesProvider =
-    StreamProvider<List<DateTime>>((ref) => ref.watch(reportRepositoryProvider).watchSearchMisses());
-final appConfigProvider = StreamProvider<AppConfig>((ref) => ref.watch(configRepositoryProvider).watch());
-final authStateProvider = StreamProvider<AppUser?>((ref) => ref.watch(authRepositoryProvider).authState());
+final busesProvider = StreamProvider<List<BusRecord>>(
+    (ref) => ref.watch(busRepositoryProvider).watchAll());
+final vendorsProvider = StreamProvider<List<Vendor>>(
+    (ref) => ref.watch(vendorRepositoryProvider).watchAll());
+final driversProvider = StreamProvider<List<DriverRecord>>(
+    (ref) => ref.watch(driverRepositoryProvider).watchAll());
+final bookingsProvider = StreamProvider<List<Booking>>(
+    (ref) => ref.watch(bookingRepositoryProvider).watchAll());
+final blackoutsProvider = StreamProvider<List<BlackoutEntry>>(
+    (ref) => ref.watch(blackoutRepositoryProvider).watchAll());
+final locationsProvider = StreamProvider<List<LocationEntry>>(
+    (ref) => ref.watch(locationRepositoryProvider).watchAll());
+final recentLocationsProvider = StreamProvider<List<LocationEntry>>(
+    (ref) => ref.watch(locationRepositoryProvider).watchRecent());
+final templatesProvider = StreamProvider<List<MessageTemplate>>(
+    (ref) => ref.watch(templateRepositoryProvider).watchAll());
+final cancellationsProvider = StreamProvider<List<CancellationRequest>>(
+    (ref) => ref.watch(cancellationRepositoryProvider).watchAll());
+final auditLogProvider = StreamProvider<List<AuditEntry>>(
+    (ref) => ref.watch(auditRepositoryProvider).watchAll());
+final notificationsProvider = StreamProvider<List<AppNotification>>(
+    (ref) => ref.watch(notificationRepositoryProvider).watchAll());
+final faqsProvider = StreamProvider<List<FaqItem>>(
+    (ref) => ref.watch(contentRepositoryProvider).watchFaqs());
+final packagesProvider = StreamProvider<List<PackageLocation>>(
+    (ref) => ref.watch(packageRepositoryProvider).watchAll());
+final allPaymentsProvider = StreamProvider<List<Payment>>(
+    (ref) => ref.watch(paymentRepositoryProvider).watchAll());
+final searchMissesProvider = StreamProvider<List<DateTime>>(
+    (ref) => ref.watch(reportRepositoryProvider).watchSearchMisses());
+final appConfigProvider = StreamProvider<AppConfig>(
+    (ref) => ref.watch(configRepositoryProvider).watch());
+final authStateProvider = StreamProvider<AppUser?>(
+    (ref) => ref.watch(authRepositoryProvider).authState());
 
 final paymentsForBookingProvider = StreamProvider.family<List<Payment>, String>(
-  (ref, bookingId) => ref.watch(paymentRepositoryProvider).watchForBooking(bookingId),
+  (ref, bookingId) =>
+      ref.watch(paymentRepositoryProvider).watchForBooking(bookingId),
 );
 
 /// The staff reports for [period], worked out from the real records. Empty
 /// figures while those are still loading.
-final reportProvider = Provider.family<Report, ReportPeriod>((ref, period) => buildReport(
-      period: period,
-      now: ref.watch(clockProvider)(),
-      bookings: ref.watch(bookingsProvider).items,
-      payments: ref.watch(allPaymentsProvider).items,
-      buses: ref.watch(busesProvider).items,
-      vendors: ref.watch(vendorsProvider).items,
-      searchMisses: ref.watch(searchMissesProvider).items,
-    ));
+final reportProvider =
+    Provider.family<Report, ReportPeriod>((ref, period) => buildReport(
+          period: period,
+          now: ref.watch(clockProvider)(),
+          bookings: ref.watch(bookingsProvider).items,
+          payments: ref.watch(allPaymentsProvider).items,
+          buses: ref.watch(busesProvider).items,
+          vendors: ref.watch(vendorsProvider).items,
+          searchMisses: ref.watch(searchMissesProvider).items,
+        ));
 
 /// The headline figures for today, shown on the staff dashboard.
-final reportMetricsProvider = Provider<List<ReportMetric>>((ref) => ref.watch(reportProvider(ReportPeriod.today)).metrics);
+final reportMetricsProvider = Provider<List<ReportMetric>>(
+    (ref) => ref.watch(reportProvider(ReportPeriod.today)).metrics);
 
 // --- conveniences --------------------------------------------------------
 

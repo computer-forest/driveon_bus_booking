@@ -14,7 +14,9 @@ class Codec {
   /// DateTime -> Timestamp, recursively.
   static dynamic encode(dynamic value) {
     if (value is DateTime) return Timestamp.fromDate(value);
-    if (value is Map) return <String, dynamic>{for (final e in value.entries) e.key as String: encode(e.value)};
+    if (value is Map) {
+      return <String, dynamic>{for (final e in value.entries) e.key as String: encode(e.value)};
+    }
     if (value is List) return [for (final e in value) encode(e)];
     return value;
   }
@@ -22,7 +24,9 @@ class Codec {
   /// Timestamp -> DateTime, recursively.
   static dynamic decode(dynamic value) {
     if (value is Timestamp) return value.toDate();
-    if (value is Map) return <String, dynamic>{for (final e in value.entries) e.key as String: decode(e.value)};
+    if (value is Map) {
+      return <String, dynamic>{for (final e in value.entries) e.key as String: decode(e.value)};
+    }
     if (value is List) return [for (final e in value) decode(e)];
     return value;
   }
@@ -75,7 +79,8 @@ class Codec {
         'licenceNumber': d.licenceNumber,
       };
 
-  static DriverRecord driverFromMap(String id, Map<String, dynamic> m) => DriverRecord(
+  static DriverRecord driverFromMap(String id, Map<String, dynamic> m) =>
+      DriverRecord(
         id: id,
         name: m['name'] as String? ?? '',
         phone: m['phone'] as String? ?? '',
@@ -100,14 +105,22 @@ class Codec {
         'driverName': b.driverName,
         'active': b.active,
         'amenities': b.amenities,
-        'photoCount': b.photoCount,
+        'photos': [
+          for (final p in b.photos)
+            {'id': p.id, 'full': p.fullUrl, 'thumb': p.thumbUrl},
+        ],
         'weeklyAvailability': [
           for (final d in b.weeklyAvailability)
-            {'available': d.available, 'start': _minutes(d.start), 'end': _minutes(d.end)},
+            {
+              'available': d.available,
+              'start': _minutes(d.start),
+              'end': _minutes(d.end)
+            },
         ],
       };
 
-  static BusRecord busFromMap(String id, Map<String, dynamic> m, {String? gpsLink}) {
+  static BusRecord busFromMap(String id, Map<String, dynamic> m,
+      {String? gpsLink}) {
     final week = (m['weeklyAvailability'] as List?) ?? const [];
     return BusRecord(
       id: id,
@@ -122,8 +135,18 @@ class Codec {
       driverName: m['driverName'] as String? ?? 'Unassigned',
       active: m['active'] as bool? ?? true,
       gpsLink: gpsLink,
-      amenities: [for (final a in (m['amenities'] as List?) ?? const []) a as String],
-      photoCount: (m['photoCount'] as num?)?.toInt() ?? 0,
+      amenities: [
+        for (final a in (m['amenities'] as List?) ?? const []) a as String
+      ],
+      // Older records carried only a count; they have no pictures.
+      photos: [
+        for (final p in (m['photos'] as List?) ?? const [])
+          if (p is Map && p['full'] is String && p['thumb'] is String)
+            BusPhoto(
+                id: p['id'] as String? ?? '',
+                fullUrl: p['full'] as String,
+                thumbUrl: p['thumb'] as String),
+      ],
       weeklyAvailability: [
         for (var i = 0; i < 7; i++)
           i < week.length
@@ -131,7 +154,10 @@ class Codec {
                   final d = week[i] as Map;
                   final available = d['available'] as bool? ?? false;
                   return available
-                      ? DayAvailability(available: true, start: _time(d['start']), end: _time(d['end']))
+                      ? DayAvailability(
+                          available: true,
+                          start: _time(d['start']),
+                          end: _time(d['end']))
                       : const DayAvailability.closed();
                 }()
               : const DayAvailability.closed(),
@@ -147,7 +173,8 @@ class Codec {
         'saved': l.saved,
       };
 
-  static LocationEntry locationFromMap(String id, Map<String, dynamic> m) => LocationEntry(
+  static LocationEntry locationFromMap(String id, Map<String, dynamic> m) =>
+      LocationEntry(
         id: id,
         city: m['city'] as String? ?? '',
         area: m['area'] as String? ?? '',
@@ -163,7 +190,8 @@ class Codec {
         'isMaintenance': e.isMaintenance,
       };
 
-  static BlackoutEntry blackoutFromMap(String id, Map<String, dynamic> m) => BlackoutEntry(
+  static BlackoutEntry blackoutFromMap(String id, Map<String, dynamic> m) =>
+      BlackoutEntry(
         id: id,
         busId: m['busId'] as String? ?? '',
         busReg: m['busReg'] as String? ?? '',
@@ -180,7 +208,8 @@ class Codec {
         'preview': t.preview,
       };
 
-  static MessageTemplate templateFromMap(String id, Map<String, dynamic> m) => MessageTemplate(
+  static MessageTemplate templateFromMap(String id, Map<String, dynamic> m) =>
+      MessageTemplate(
         id: id,
         name: m['name'] as String? ?? '',
         channel: m['channel'] as String? ?? '',
@@ -204,18 +233,26 @@ class Codec {
     const d = AppConfig();
     return AppConfig(
       holdMinutes: (m['holdMinutes'] as num?)?.toInt() ?? d.holdMinutes,
-      preBufferMinutes: (m['preBufferMinutes'] as num?)?.toInt() ?? d.preBufferMinutes,
-      postBufferMinutes: (m['postBufferMinutes'] as num?)?.toInt() ?? d.postBufferMinutes,
-      defaultAdvancePercent: (m['defaultAdvancePercent'] as num?)?.toInt() ?? d.defaultAdvancePercent,
+      preBufferMinutes:
+          (m['preBufferMinutes'] as num?)?.toInt() ?? d.preBufferMinutes,
+      postBufferMinutes:
+          (m['postBufferMinutes'] as num?)?.toInt() ?? d.postBufferMinutes,
+      defaultAdvancePercent: (m['defaultAdvancePercent'] as num?)?.toInt() ??
+          d.defaultAdvancePercent,
       supportPhone: m['supportPhone'] as String? ?? d.supportPhone,
       whatsappNumber: m['whatsappNumber'] as String? ?? d.whatsappNumber,
-      capacities: [for (final c in (m['capacities'] as List?) ?? d.capacities) (c as num).toInt()],
+      capacities: [
+        for (final c in (m['capacities'] as List?) ?? d.capacities)
+          (c as num).toInt()
+      ],
     );
   }
 
   // --- packages / faqs / audit -------------------------------------------
 
-  static Map<String, dynamic> packageToMap(PackageLocation p, {int order = 0}) => {
+  static Map<String, dynamic> packageToMap(PackageLocation p,
+          {int order = 0}) =>
+      {
         'city': p.city,
         'order': order,
         'packages': [
@@ -225,13 +262,18 @@ class Codec {
               'sampleRates': s.sampleRates,
               'trips': [
                 for (final t in s.trips)
-                  {'destination': t.destination, 'oneDayRate': t.oneDayRate, 'twoDayRate': t.twoDayRate},
+                  {
+                    'destination': t.destination,
+                    'oneDayRate': t.oneDayRate,
+                    'twoDayRate': t.twoDayRate
+                  },
               ],
             },
         ],
       };
 
-  static PackageLocation packageFromMap(Map<String, dynamic> m) => PackageLocation(
+  static PackageLocation packageFromMap(Map<String, dynamic> m) =>
+      PackageLocation(
         city: m['city'] as String? ?? '',
         packages: [
           for (final s in (m['packages'] as List?) ?? const [])
@@ -253,10 +295,12 @@ class Codec {
   static Map<String, dynamic> faqToMap(FaqItem f, {int order = 0}) =>
       {'question': f.question, 'answer': f.answer, 'order': order};
 
-  static FaqItem faqFromMap(Map<String, dynamic> m) =>
-      FaqItem(question: m['question'] as String? ?? '', answer: m['answer'] as String? ?? '');
+  static FaqItem faqFromMap(Map<String, dynamic> m) => FaqItem(
+      question: m['question'] as String? ?? '',
+      answer: m['answer'] as String? ?? '');
 
-  static AuditEntry auditFromMap(String id, Map<String, dynamic> m) => AuditEntry(
+  static AuditEntry auditFromMap(String id, Map<String, dynamic> m) =>
+      AuditEntry(
         id: id,
         actor: m['actor'] as String? ?? '',
         action: m['action'] as String? ?? '',
@@ -281,7 +325,8 @@ class Codec {
         end: m['end'] as DateTime,
         totalFare: (m['totalFare'] as num?)?.toInt() ?? 0,
         amountPaid: (m['amountPaid'] as num?)?.toInt() ?? 0,
-        stage: BookingStage.values.asNameMap()[m['stage']] ?? BookingStage.requested,
+        stage: BookingStage.values.asNameMap()[m['stage']] ??
+            BookingStage.requested,
         holdExpiresAt: m['holdExpiresAt'] as DateTime?,
         pickupLandmark: _str(m['pickupLandmark']),
         createdAt: m['createdAt'] as DateTime?,
@@ -296,7 +341,8 @@ class Codec {
         amount: (m['amount'] as num?)?.toInt() ?? 0,
         mode: m['mode'] as String? ?? '',
         reference: m['reference'] as String? ?? '',
-        receivedOn: (m['receivedOn'] as DateTime?) ?? DateTime.fromMillisecondsSinceEpoch(0),
+        receivedOn: (m['receivedOn'] as DateTime?) ??
+            DateTime.fromMillisecondsSinceEpoch(0),
         recordedBy: m['recordedBy'] as String? ?? '',
       );
 
@@ -315,25 +361,32 @@ class Codec {
         'status': c.status.name,
       };
 
-  static CancellationRequest cancellationFromMap(String id, Map<String, dynamic> m) => CancellationRequest(
+  static CancellationRequest cancellationFromMap(
+          String id, Map<String, dynamic> m) =>
+      CancellationRequest(
         id: id,
         bookingId: m['bookingId'] as String? ?? '',
         requestedBy: m['requestedBy'] as String? ?? '',
         reason: m['reason'] as String? ?? '',
-        status: CancellationStatus.values.asNameMap()[m['status']] ?? CancellationStatus.pending,
-        createdAt: (m['createdAt'] as DateTime?) ?? DateTime.fromMillisecondsSinceEpoch(0),
+        status: CancellationStatus.values.asNameMap()[m['status']] ??
+            CancellationStatus.pending,
+        createdAt: (m['createdAt'] as DateTime?) ??
+            DateTime.fromMillisecondsSinceEpoch(0),
         decisionNote: m['decisionNote'] as String? ?? '',
         refundAmount: (m['refundAmount'] as num?)?.toInt() ?? 0,
       );
 
-  static AppNotification notificationFromMap(String id, Map<String, dynamic> m) => AppNotification(
+  static AppNotification notificationFromMap(
+          String id, Map<String, dynamic> m) =>
+      AppNotification(
         id: id,
         title: m['title'] as String? ?? '',
         body: m['body'] as String? ?? '',
         // A notification just written by the server has no timestamp for a moment.
         createdAt: (m['createdAt'] as DateTime?) ?? DateTime.now(),
         read: m['read'] as bool? ?? false,
-        tone: NotificationTone.values.asNameMap()[m['tone']] ?? NotificationTone.info,
+        tone: NotificationTone.values.asNameMap()[m['tone']] ??
+            NotificationTone.info,
         bookingId: _str(m['bookingId']),
       );
 }

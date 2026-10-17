@@ -1,0 +1,38 @@
+rules_version = '2';
+
+// Bus photos only. Customers can look; only staff can add or remove, and only
+// small JPEGs (the app shrinks every photo to well under this before upload).
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.role == 'admin';
+    }
+
+    match /buses/{busId}/{file} {
+      allow read: if signedIn();
+
+      // Only a name that is not taken yet: an existing file can never be
+      // replaced (an upload over it would otherwise count as a create).
+      allow create: if isAdmin()
+        && resource == null
+        && request.resource.contentType == 'image/jpeg'
+        && request.resource.size < 700 * 1024
+        && file.matches('ph-[A-Za-z0-9_-]+(_thumb)?[.]jpg');
+
+      // A file is never rewritten: a new picture is a new file. That is what
+      // lets phones keep it for a year.
+      allow update: if false;
+
+      allow delete: if isAdmin();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -14,3 +14,4 @@ export { deleteAccount } from "./deleteAccount";
 export * from "./audit";
 export { searchBuses, createHold, bookingAction, expireHolds } from "./bookings";
 export { onBookingWritten, onCancellationRequested, onCancellationDecided } from "./bookingEvents";
+export { cleanBusPhotos, sweepBusPhotos } from "./busPhotos";

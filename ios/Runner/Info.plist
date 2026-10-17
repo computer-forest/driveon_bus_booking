@@ -41,6 +41,10 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Take photos of buses to show customers.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose photos of buses to show customers.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to unlock the app quickly and securely.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
