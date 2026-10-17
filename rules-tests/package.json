@@ -4,7 +4,7 @@
   "scripts": {
     "test": "firebase emulators:exec --only firestore --project driveon-charter \"node --test rules.test.js\"",
     "test:run": "node --test",
-    "e2e": "firebase emulators:exec --only auth,functions,firestore,storage --project driveon-charter \"node --test --test-concurrency=1 e2e.test.js e2e.bookings.test.js e2e.engagement.test.js e2e.photos.test.js\"",
+    "e2e": "firebase emulators:exec --only auth,functions,firestore,storage --project driveon-charter \"node --test --test-concurrency=1 e2e.test.js e2e.bookings.test.js e2e.engagement.test.js e2e.photos.test.js e2e.staff.test.js\"",
     "test:storage": "firebase emulators:exec --only storage --project driveon-charter \"node --test storage.test.js\""
   },
   "devDependencies": {

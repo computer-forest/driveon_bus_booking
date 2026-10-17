@@ -164,6 +164,16 @@ class FirestoreContentRepository extends FirestoreBase implements ContentReposit
   @override
   Stream<List<FaqItem>> watchFaqs() =>
       list(db.collection('faqs').orderBy('order'), (_, data) => Codec.faqFromMap(data));
+
+  @override
+  Stream<LegalDocument?> watchLegal(LegalKind kind) => db.doc('legal/${kind.name}').snapshots().map((s) {
+        final data = s.data();
+        return data == null ? null : Codec.legalFromMap(Codec.decodeMap(data));
+      });
+
+  @override
+  Future<void> saveLegal(LegalKind kind, List<LegalSection> sections) =>
+      db.doc('legal/${kind.name}').set(stamp({'sections': Codec.legalToMap(sections)}));
 }
 
 class FirestorePackageRepository extends FirestoreBase implements PackageRepository {
@@ -411,4 +421,33 @@ class FirestoreReportRepository extends FirestoreBase implements ReportRepositor
         for (final d in s.docs)
           if (d.data()['at'] is Timestamp) (d.data()['at'] as Timestamp).toDate(),
       ]);
+}
+
+/// Reading the staff list is allowed for staff only; every change goes through
+/// the manageStaff function, which enforces the rules.
+class FirestoreStaffRepository extends FirestoreBase implements StaffRepository {
+  FirestoreStaffRepository(super.db, super.currentUid, this._call);
+
+  final CallFunction _call;
+
+  @override
+  Stream<List<StaffMember>> watchAll() => list(
+        db.collection('staff'),
+        (id, data) => StaffMember(
+          phone: id,
+          name: data['name'] is String ? data['name'] as String : '',
+          active: data['active'] == true,
+        ),
+      ).map((all) => all..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase())));
+
+  Future<void> _manage(Map<String, dynamic> data) => invokeFunction(_call, 'manageStaff', data);
+
+  @override
+  Future<void> add({required String phone, required String name}) => _manage({'action': 'add', 'phone': phone, 'name': name});
+
+  @override
+  Future<void> setActive(String phone, bool active) => _manage({'action': 'setActive', 'phone': phone, 'active': active});
+
+  @override
+  Future<void> rename(String phone, String name) => _manage({'action': 'rename', 'phone': phone, 'name': name});
 }

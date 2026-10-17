@@ -103,12 +103,13 @@ test("a deactivated staff member is refused", async () => {
   await assert.rejects(staffToken("9820000002"), (e) => e.code === "functions/permission-denied");
 });
 
-test("a signed-in customer or staff member cannot read the staff list", async () => {
+test("a customer cannot read the staff list; staff can, but cannot change it directly", async () => {
   await assert.rejects(getDoc(doc(db, "staff/919820000001")));
   await signOut(auth);
   const { customToken } = await staffToken("9820000001");
   await signInWithCustomToken(auth, customToken);
-  await assert.rejects(getDoc(doc(db, "staff/919820000001")));
+  assert.equal((await getDoc(doc(db, "staff/919820000001"))).data().name, "Priya");
+  await assert.rejects(updateDoc(doc(db, "staff/919820000001"), { active: false }));
 });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

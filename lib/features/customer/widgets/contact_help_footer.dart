@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/utils/contact_launcher.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../data/providers.dart';
 
@@ -15,6 +16,7 @@ class ContactActionCard extends StatelessWidget {
     required this.subtitle,
     required this.color,
     required this.tint,
+    required this.onTap,
   });
 
   final IconData icon;
@@ -22,12 +24,13 @@ class ContactActionCard extends StatelessWidget {
   final String subtitle;
   final Color color;
   final Color tint;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     return AppCard(
-      onTap: () {},
+      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -47,14 +50,15 @@ class ContactActionCard extends StatelessWidget {
   }
 }
 
-/// The Call / WhatsApp pair. The number shown is the one an admin sets in
-/// the masters configuration.
+/// The Call / WhatsApp pair. Each number is the one staff set in the masters
+/// configuration; tapping opens the phone's dialler or WhatsApp.
 class ContactActions extends ConsumerWidget {
   const ContactActions({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider).config;
+    final opener = ref.watch(urlOpenerProvider);
     return Row(
       children: [
         Expanded(
@@ -64,16 +68,30 @@ class ContactActions extends ConsumerWidget {
             subtitle: config.supportPhone,
             color: AppColors.primary,
             tint: AppColors.primaryTint,
+            onTap: () => openOrExplain(
+              context,
+              opener,
+              phoneUri(config.supportPhone),
+              what: 'the phone',
+              number: config.supportPhone,
+            ),
           ),
         ),
         const SizedBox(width: AppSpacing.md),
-        const Expanded(
+        Expanded(
           child: ContactActionCard(
             icon: Icons.chat_rounded,
             label: 'WhatsApp',
-            subtitle: 'Usually replies in minutes',
+            subtitle: 'Message us on WhatsApp',
             color: AppColors.success,
             tint: AppColors.successTint,
+            onTap: () => openOrExplain(
+              context,
+              opener,
+              whatsappUri(config.whatsappNumber, message: 'Hello, I need help with a bus booking.'),
+              what: 'WhatsApp',
+              number: config.whatsappNumber,
+            ),
           ),
         ),
       ],

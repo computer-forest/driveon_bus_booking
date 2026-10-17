@@ -13,6 +13,8 @@ Future<bool> guardedWrite(BuildContext context, Future<void> Function() write) a
     return true;
   } on BookingException catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(e.message)));
+  } on AuthException catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(e.message)));
   } on BusUnavailableException catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(e.toString())));
   } on FirebaseException catch (e) {

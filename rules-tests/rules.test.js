@@ -94,8 +94,6 @@ test("collections that are not open yet stay closed to customers and admins alik
       await assertFails(getDocs(collection(db, name)));
       await assertFails(setDoc(doc(db, `${name}/x`), { a: 1 }));
     }
-    await assertFails(getDocs(collection(db, "staff")));
-    await assertFails(setDoc(doc(db, "staff/919820000009"), { name: "Me", active: true }));
   }
 });
 
@@ -328,4 +326,45 @@ test("only staff read the failed-search log, and nobody writes it", async () => 
   await assertSucceeds(getDoc(doc(admin(), "searchMisses/m1")));
   await assertFails(getDoc(doc(customer("cust_919820011223"), "searchMisses/m1")));
   await assertFails(setDoc(doc(admin(), "searchMisses/m2"), { a: 1 }));
+});
+
+// --- legal text (Terms & Privacy) ----------------------------------------
+
+test("anyone can read the Terms and Privacy text, even before signing in", async () => {
+  await seedDoc("legal/terms", { sections: [{ heading: "A", body: "b" }] });
+  await assertSucceeds(getDoc(doc(anon(), "legal/terms")));
+  await assertSucceeds(getDoc(doc(customer("cust_919820011223"), "legal/terms")));
+});
+
+test("only staff can write the legal text, stamped, as a list, for the two real documents", async () => {
+  const sections = [{ heading: "Payments", body: "Text" }];
+  await assertSucceeds(setDoc(doc(admin(), "legal/terms"), { sections, ...stamp() }));
+  await assertSucceeds(setDoc(doc(admin(), "legal/privacy"), { sections, ...stamp() }));
+  await assertFails(setDoc(doc(customer("cust_919820011223"), "legal/terms"), { sections, ...stamp() }));
+  await assertFails(setDoc(doc(anon(), "legal/terms"), { sections }));
+  await assertFails(setDoc(doc(admin(), "legal/other"), { sections, ...stamp() })); // not a real document
+  await assertFails(setDoc(doc(admin(), "legal/terms"), { sections: "text", ...stamp() }));
+  await assertFails(setDoc(doc(admin(), "legal/terms"), { sections, updatedBy: "someone-else", updatedAt: serverTimestamp() }));
+  await assertFails(setDoc(doc(admin(), "legal/terms"), { sections: Array.from({ length: 41 }, () => ({ heading: "h", body: "b" })), ...stamp() }));
+});
+
+test("the legal text is never deleted", async () => {
+  await seedDoc("legal/terms", { sections: [] });
+  await assertFails(deleteDoc(doc(admin(), "legal/terms")));
+});
+
+// --- the staff list ------------------------------------------------------
+
+test("staff can see who has staff access, but customers and visitors cannot, and nobody writes it from the app", async () => {
+  await seedDoc("staff/919820000001", { name: "Priya", active: true });
+  await assertSucceeds(getDoc(doc(admin(), "staff/919820000001")));
+  await assertSucceeds(getDocs(collection(admin(), "staff")));
+  await assertFails(getDoc(doc(customer("cust_919820011223"), "staff/919820000001")));
+  await assertFails(getDocs(collection(customer("cust_919820011223"), "staff")));
+  await assertFails(getDoc(doc(anon(), "staff/919820000001")));
+  for (const db of [admin(), customer("cust_919820011223")]) {
+    await assertFails(setDoc(doc(db, "staff/919820000009"), { name: "Me", active: true }));
+    await assertFails(updateDoc(doc(db, "staff/919820000001"), { active: false }));
+    await assertFails(deleteDoc(doc(db, "staff/919820000001")));
+  }
 });

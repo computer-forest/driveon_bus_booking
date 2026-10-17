@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/utils/contact_launcher.dart';
 import '../../../data/models.dart';
+import '../../../data/providers.dart';
 
-class DriverCard extends StatelessWidget {
+class DriverCard extends ConsumerWidget {
   const DriverCard({super.key, required this.driver});
 
   final DriverInfo driver;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     return Row(
       children: [
@@ -38,7 +41,13 @@ class DriverCard extends StatelessWidget {
         ),
         if (driver.phone.isNotEmpty)
           IconButton(
-            onPressed: () {},
+            onPressed: () => openOrExplain(
+              context,
+              ref.read(urlOpenerProvider),
+              phoneUri(driver.phone),
+              what: 'the phone',
+              number: driver.phone,
+            ),
             icon: const Icon(Icons.call_outlined),
             color: AppColors.primary,
             style: IconButton.styleFrom(

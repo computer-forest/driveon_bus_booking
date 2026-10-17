@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/utils/guarded_write.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../data/providers.dart';
@@ -21,11 +22,14 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _emailController = TextEditingController();
 
   Future<void> _continue() async {
-    await ref.read(authRepositoryProvider).updateProfile(
-          name: _nameController.text.trim(),
-          email: _emailController.text.trim(),
-        );
-    if (!mounted) return;
+    final saved = await guardedWrite(
+      context,
+      () => ref.read(authRepositoryProvider).updateProfile(
+            name: _nameController.text.trim(),
+            email: _emailController.text.trim(),
+          ),
+    );
+    if (!saved || !mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const EnableBiometricScreen()),
     );

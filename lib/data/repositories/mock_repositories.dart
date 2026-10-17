@@ -33,6 +33,10 @@ class MockBackend {
         payments = InMemoryStore(MockData.payments),
         ratings = InMemoryStore<Rating>(const []),
         cancellations = InMemoryStore<CancellationRequest>(const []),
+        staff = InMemoryStore([
+          for (final p in MockAuthRepository.staffPhones)
+            StaffMember(phone: '91$p', name: 'Priya', active: true),
+        ]),
         config = InMemoryValue(const AppConfig()),
         user = InMemoryValue<AppUser?>(null);
 
@@ -49,6 +53,7 @@ class MockBackend {
   final InMemoryStore<Payment> payments;
   final InMemoryStore<Rating> ratings;
   final InMemoryStore<CancellationRequest> cancellations;
+  final InMemoryStore<StaffMember> staff;
   final InMemoryValue<AppConfig> config;
   final InMemoryValue<AppUser?> user;
 }
@@ -267,6 +272,59 @@ class MockSearchRepository implements SearchRepository {
       );
 }
 
+/// The same rules the backend enforces, so demo mode behaves alike.
+class MockStaffRepository implements StaffRepository {
+  MockStaffRepository(this._b);
+  final MockBackend _b;
+
+  @override
+  Stream<List<StaffMember>> watchAll() => _b.staff.watch();
+
+  static String? _normalise(String raw) {
+    var d = raw.replaceAll(RegExp(r'\D'), '');
+    if (d.startsWith('0')) d = d.substring(1);
+    if (d.length == 10) d = '91$d';
+    return RegExp(r'^91[6-9]\d{9}$').hasMatch(d) ? d : null;
+  }
+
+  StaffMember? _find(String phone) => _b.staff.items.where((m) => m.phone == phone).firstOrNull;
+
+  String get _mePhone => '91${(_b.user.value?.phone ?? '').replaceAll(RegExp(r'\D'), '')}';
+
+  @override
+  Future<void> add({required String phone, required String name}) async {
+    final p = _normalise(phone);
+    if (p == null) throw const BookingException('Enter a valid 10-digit mobile number.');
+    final clean = name.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (clean.length < 2) throw const BookingException("Enter the person's name.");
+    final existing = _find(p);
+    if (existing != null && existing.active) throw const BookingException('That number already has staff access.');
+    _b.staff.upsert((m) => m.phone == p, StaffMember(phone: p, name: clean, active: true));
+  }
+
+  @override
+  Future<void> setActive(String phone, bool active) async {
+    final p = _normalise(phone);
+    final member = p == null ? null : _find(p);
+    if (member == null) throw const BookingException('That number is not on the staff list.');
+    if (!active && p == _mePhone) throw const BookingException('You cannot switch off your own access.');
+    if (!active && member.active && _b.staff.items.where((m) => m.active && m.phone != p).isEmpty) {
+      throw const BookingException('At least one person must keep staff access.');
+    }
+    _b.staff.upsert((m) => m.phone == p, member.copyWith(active: active));
+  }
+
+  @override
+  Future<void> rename(String phone, String name) async {
+    final p = _normalise(phone);
+    final member = p == null ? null : _find(p);
+    if (member == null) throw const BookingException('That number is not on the staff list.');
+    final clean = name.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (clean.length < 2) throw const BookingException("Enter the person's name.");
+    _b.staff.upsert((m) => m.phone == p, member.copyWith(name: clean));
+  }
+}
+
 class MockBlackoutRepository implements BlackoutRepository {
   MockBlackoutRepository(this._b);
   final MockBackend _b;
@@ -347,8 +405,20 @@ class MockNotificationRepository implements NotificationRepository {
 }
 
 class MockContentRepository implements ContentRepository {
+  final Map<LegalKind, InMemoryValue<LegalDocument?>> _legal = {
+    for (final k in LegalKind.values) k: InMemoryValue<LegalDocument?>(null),
+  };
+
   @override
   Stream<List<FaqItem>> watchFaqs() => Stream.value(MockData.faqs);
+
+  @override
+  Stream<LegalDocument?> watchLegal(LegalKind kind) => _legal[kind]!.watch();
+
+  @override
+  Future<void> saveLegal(LegalKind kind, List<LegalSection> sections) async {
+    _legal[kind]!.value = LegalDocument(sections: sections, updatedAt: MockData.now);
+  }
 }
 
 class MockPackageRepository implements PackageRepository {
@@ -479,7 +549,9 @@ class MockAuthRepository implements AuthRepository {
   @override
   Future<AppUser> signInWithOtpToken({required String phone, required String accessToken, bool staff = false}) async {
     final identity = await _verifier.verify(phone: phone, accessToken: accessToken);
-    if (staff && !staffPhones.contains(identity.phone)) throw const AuthException(AuthMessages.notStaff);
+    if (staff && !_b.staff.items.any((m) => m.active && m.phone == '91${identity.phone}')) {
+      throw const AuthException(AuthMessages.notStaff);
+    }
     final uid = staff ? 'staff_91${identity.phone}' : identity.uid;
     final profile = staff ? null : await _readProfile(uid);
     final user = AppUser(

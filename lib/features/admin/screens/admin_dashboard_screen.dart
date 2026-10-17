@@ -18,6 +18,7 @@ import 'cancellation_requests_screen.dart';
 import 'masters_config_screen.dart';
 import 'notification_templates_screen.dart';
 import 'reports_screen.dart';
+import 'staff_access_screen.dart';
 import 'vendor_list_screen.dart';
 
 /// The Admin landing screen (BRD 9.1: "dashboard"), separate from the
@@ -109,6 +110,7 @@ class AdminDashboardScreen extends ConsumerWidget {
               pendingCancellations > 0 ? 'Cancellation requests ($pendingCancellations waiting)' : 'Cancellation requests',
               const CancellationRequestsScreen(),
             ),
+            _shortcut(context, Icons.admin_panel_settings_outlined, 'Staff access', const StaffAccessScreen()),
             _shortcut(context, Icons.storefront_outlined, 'Vendors', const VendorListScreen()),
             _shortcut(context, Icons.directions_bus_filled_outlined, 'Buses', const BusListScreen()),
             _shortcut(context, Icons.block_rounded, 'Blackout & maintenance', const BlackoutMaintenanceScreen()),

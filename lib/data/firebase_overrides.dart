@@ -47,6 +47,7 @@ List<Override> firestoreRepositoryOverrides(
       return FirestoreBookingRepository(firestore, uid, callFunction,
           isAdmin: isAdmin);
     }),
+    staffRepositoryProvider.overrideWith((ref) => FirestoreStaffRepository(firestore, uid, callFunction)),
     searchRepositoryProvider.overrideWith(
       (ref) => FirestoreSearchRepository(
           firestore, uid, callFunction, ref.watch(busRepositoryProvider)),

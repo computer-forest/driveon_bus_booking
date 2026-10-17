@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/utils/guarded_write.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../data/ids.dart';
@@ -35,18 +36,22 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
   bool get _canSubmit => _busRating > 0 && _driverRating > 0 && _overallRating > 0;
 
   Future<void> _submit() async {
-    await ref.read(ratingRepositoryProvider).submit(
-          Rating(
-            id: newId('rat'),
-            bookingId: widget.booking.id,
-            bus: _busRating,
-            driver: _driverRating,
-            overall: _overallRating,
-            feedback: _feedbackController.text.trim(),
-            createdAt: ref.read(clockProvider)(),
+    // A failed save is reported instead of leaving a button that does nothing.
+    final saved = await guardedWrite(
+      context,
+      () => ref.read(ratingRepositoryProvider).submit(
+            Rating(
+              id: newId('rat'),
+              bookingId: widget.booking.id,
+              bus: _busRating,
+              driver: _driverRating,
+              overall: _overallRating,
+              feedback: _feedbackController.text.trim(),
+              createdAt: ref.read(clockProvider)(),
+            ),
           ),
-        );
-    if (mounted) setState(() => _submitted = true);
+    );
+    if (saved && mounted) setState(() => _submitted = true);
   }
 
   @override
@@ -91,7 +96,7 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.xl),
           children: [
-            Text('Thane → Mahabaleshwar · CB-20260914-0472', style: textTheme.bodyMedium),
+            Text('${widget.booking.route} · ${widget.booking.reference}', style: textTheme.bodyMedium),
             const SizedBox(height: AppSpacing.xl),
             AppCard(
               child: Column(
@@ -131,8 +136,9 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: textTheme.titleSmall),
+        Expanded(child: Text(label, style: textTheme.titleSmall, overflow: TextOverflow.ellipsis)),
         Row(
+          mainAxisSize: MainAxisSize.min,
           children: List.generate(5, (i) {
             final filled = i < value;
             return InkWell(

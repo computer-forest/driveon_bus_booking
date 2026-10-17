@@ -28,6 +28,7 @@ const SPECS: Record<string, { entity: string; label: (id: string, d: Data) => st
   templates: { entity: "Template", label: (_, d) => String(d.name ?? "") },
   packages: { entity: "Package rates", label: (_, d) => String(d.city ?? "") },
   faqs: { entity: "FAQ", label: (_, d) => String(d.question ?? "") },
+  legal: { entity: "Legal text", label: (id) => (id === "terms" ? "Terms & Conditions" : "Privacy Policy") },
   config: { entity: "Configuration", label: () => "App configuration" },
 };
 
@@ -102,4 +103,5 @@ export const auditBlackouts = makeTrigger("blackouts");
 export const auditTemplates = makeTrigger("templates");
 export const auditPackages = makeTrigger("packages");
 export const auditFaqs = makeTrigger("faqs");
+export const auditLegal = makeTrigger("legal");
 export const auditConfig = makeTrigger("config");

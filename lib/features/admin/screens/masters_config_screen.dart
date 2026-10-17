@@ -9,6 +9,7 @@ import '../../../core/widgets/async_body.dart';
 import '../../../data/ids.dart';
 import '../../../data/models.dart';
 import '../../../data/providers.dart';
+import 'legal_editor_screen.dart';
 import 'notification_templates_screen.dart';
 
 /// ADM-11: cities/areas, capacities, hold duration, buffer defaults,
@@ -190,8 +191,22 @@ class _ConfigFormState extends ConsumerState<_ConfigForm> {
             keyboardType: TextInputType.number),
         const SizedBox(height: AppSpacing.xl),
         const SectionLabel('Content'),
-        _linkRow(context, Icons.description_outlined, 'Terms & Conditions'),
-        _linkRow(context, Icons.privacy_tip_outlined, 'Privacy Policy'),
+        _linkRow(
+          context,
+          Icons.description_outlined,
+          'Terms & Conditions',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const LegalEditorScreen(kind: LegalKind.terms)),
+          ),
+        ),
+        _linkRow(
+          context,
+          Icons.privacy_tip_outlined,
+          'Privacy Policy',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const LegalEditorScreen(kind: LegalKind.privacy)),
+          ),
+        ),
         _linkRow(
           context,
           Icons.mark_email_unread_outlined,

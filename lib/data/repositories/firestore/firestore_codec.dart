@@ -389,4 +389,22 @@ class Codec {
             NotificationTone.info,
         bookingId: _str(m['bookingId']),
       );
+
+  // --- legal text ----------------------------------------------------------
+
+  static List<Map<String, dynamic>> legalToMap(List<LegalSection> sections) => [
+        for (final s in sections) {'heading': s.heading, 'body': s.body},
+      ];
+
+  static LegalDocument legalFromMap(Map<String, dynamic> m) => LegalDocument(
+        sections: [
+          for (final s in (m['sections'] as List?) ?? const [])
+            if (s is Map)
+              LegalSection(
+                heading: s['heading'] is String ? s['heading'] as String : '',
+                body: s['body'] is String ? s['body'] as String : '',
+              ),
+        ],
+        updatedAt: m['updatedAt'] as DateTime?,
+      );
 }

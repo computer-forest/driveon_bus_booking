@@ -506,6 +506,63 @@ class AppNotification {
       );
 }
 
+/// One headed block of a legal text.
+/// Someone with staff access. [phone] is the 12-digit number with country
+/// code (91 + the 10 digits), which is also the document id and how the
+/// person signs in.
+class StaffMember {
+  const StaffMember({required this.phone, required this.name, required this.active});
+
+  final String phone;
+  final String name;
+  final bool active;
+
+  /// `+91 98200 00001`.
+  String get displayPhone {
+    final d = phone.length >= 10 ? phone.substring(phone.length - 10) : phone;
+    return d.length == 10 ? '+91 ${d.substring(0, 5)} ${d.substring(5)}' : phone;
+  }
+
+  StaffMember copyWith({String? name, bool? active}) =>
+      StaffMember(phone: phone, name: name ?? this.name, active: active ?? this.active);
+}
+
+/// One headed block of a legal text.
+class LegalSection {
+  const LegalSection({required this.heading, required this.body});
+
+  final String heading;
+  final String body;
+
+  @override
+  bool operator ==(Object other) => other is LegalSection && other.heading == heading && other.body == body;
+
+  @override
+  int get hashCode => Object.hash(heading, body);
+}
+
+/// The Terms & Conditions or the Privacy Policy. Staff edit them in the app,
+/// so the wording can change without a new release.
+class LegalDocument {
+  const LegalDocument({required this.sections, this.updatedAt});
+
+  final List<LegalSection> sections;
+
+  /// Set by the server when staff last saved it.
+  final DateTime? updatedAt;
+
+  bool get isEmpty => sections.isEmpty;
+}
+
+/// Which legal text. The names are the document ids in Firestore.
+enum LegalKind {
+  terms('Terms & Conditions'),
+  privacy('Privacy Policy');
+
+  const LegalKind(this.title);
+  final String title;
+}
+
 class FaqItem {
   const FaqItem({required this.question, required this.answer});
   final String question;

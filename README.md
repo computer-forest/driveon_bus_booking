@@ -291,3 +291,29 @@ as possible, once per phone:
 
 Tests: `cd rules-tests && npm run test:storage` (9) and `npm run e2e` (44, incl.
 cleanup). A bus with no photos shows a neutral bus picture.
+
+## Android release signing
+
+Release builds are signed with a private upload key, never the debug key.
+
+- The keystore is `~/.android-keystores/driveon-charter/upload-keystore.jks`
+  (alias `upload`), kept **outside** the project so a clean cannot delete it.
+- Its passwords and path are in `android/key.properties`, which is git-ignored.
+- **Back both up somewhere safe and private** (a password manager and an
+  encrypted copy). If the key is lost, an app already published on Google Play can
+  only be updated by asking Play to reset the upload key.
+- On a machine without `android/key.properties`, `flutter build apk --release`
+  produces an **unsigned** APK that will not install. That is deliberate: it can
+  never be mistaken for a real release, and it never falls back to the debug key.
+- To set up another machine, copy the keystore there and create `android/key.properties`:
+
+  ```
+  storePassword=...
+  keyPassword=...
+  keyAlias=upload
+  storeFile=/absolute/path/to/upload-keystore.jks
+  ```
+- Check a build: `apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk`
+  should show `CN=Charter Booking, O=DriveOn, C=IN`, not `Android Debug`.
+- When the app goes on Google Play, enrol in Play App Signing: Google keeps the
+  final signing key and this one is only the upload key.

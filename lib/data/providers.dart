@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/utils/contact_launcher.dart';
 import '../features/admin/photos/photo_picker.dart';
 import '../features/admin/photos/photo_processor.dart';
 import '../features/auth/data/auth_config.dart';
@@ -40,6 +41,7 @@ final bookingRepositoryProvider = Provider<BookingRepository>(
     (ref) => MockBookingRepository(ref.watch(mockBackendProvider)));
 final searchRepositoryProvider = Provider<SearchRepository>(
     (ref) => MockSearchRepository(ref.watch(mockBackendProvider)));
+final staffRepositoryProvider = Provider<StaffRepository>((ref) => MockStaffRepository(ref.watch(mockBackendProvider)));
 final blackoutRepositoryProvider = Provider<BlackoutRepository>(
     (ref) => MockBlackoutRepository(ref.watch(mockBackendProvider)));
 final locationRepositoryProvider = Provider<LocationRepository>(
@@ -70,6 +72,9 @@ final cancellationRepositoryProvider = Provider<CancellationRepository>(
 /// Shrinks a picked photo before upload. Replaced with a fake in tests.
 final photoProcessorProvider =
     Provider<PhotoProcessor>((ref) => const ImagePackagePhotoProcessor());
+
+/// Opens calls and chats. Replaced with a fake in tests.
+final urlOpenerProvider = Provider<UrlOpener>((ref) => const SystemUrlOpener());
 
 /// Camera and gallery. Replaced with a fake in tests.
 final photoPickerProvider =
@@ -160,6 +165,12 @@ final auditLogProvider = StreamProvider<List<AuditEntry>>(
     (ref) => ref.watch(auditRepositoryProvider).watchAll());
 final notificationsProvider = StreamProvider<List<AppNotification>>(
     (ref) => ref.watch(notificationRepositoryProvider).watchAll());
+final staffMembersProvider = StreamProvider<List<StaffMember>>((ref) => ref.watch(staffRepositoryProvider).watchAll());
+
+/// The Terms or Privacy text; null until staff have written it.
+final legalProvider = StreamProvider.family<LegalDocument?, LegalKind>(
+  (ref, kind) => ref.watch(contentRepositoryProvider).watchLegal(kind),
+);
 final faqsProvider = StreamProvider<List<FaqItem>>(
     (ref) => ref.watch(contentRepositoryProvider).watchFaqs());
 final packagesProvider = StreamProvider<List<PackageLocation>>(

@@ -95,6 +95,18 @@ abstract class SearchRepository {
   Future<List<BusRecord>> availableBuses(SearchCriteria criteria);
 }
 
+/// Who has staff access. Changes are checked by the backend: you cannot
+/// switch yourself off and the last active person cannot be switched off
+/// ([BookingException] carries the reason).
+abstract class StaffRepository {
+  Stream<List<StaffMember>> watchAll();
+
+  /// [phone] is what was typed (10 digits, or with +91).
+  Future<void> add({required String phone, required String name});
+  Future<void> setActive(String phone, bool active);
+  Future<void> rename(String phone, String name);
+}
+
 abstract class BlackoutRepository {
   Stream<List<BlackoutEntry>> watchAll();
   Future<void> add(BlackoutEntry entry);
@@ -130,6 +142,12 @@ abstract class NotificationRepository {
 
 abstract class ContentRepository {
   Stream<List<FaqItem>> watchFaqs();
+
+  /// The legal text, or null until staff have written it.
+  Stream<LegalDocument?> watchLegal(LegalKind kind);
+
+  /// Saves the text; the server stamps when.
+  Future<void> saveLegal(LegalKind kind, List<LegalSection> sections);
 }
 
 abstract class PackageRepository {

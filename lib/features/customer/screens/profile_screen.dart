@@ -7,6 +7,7 @@ import '../../../data/providers.dart';
 import '../../auth/data/auth_messages.dart';
 import '../widgets/customer_bottom_nav.dart';
 import 'delete_account_screen.dart';
+import 'edit_profile_screen.dart';
 import 'home_search_screen.dart';
 import 'my_bookings_screen.dart';
 import 'support_screen.dart';
@@ -44,6 +45,9 @@ class ProfileScreen extends ConsumerWidget {
             Text('Profile', style: textTheme.displaySmall?.copyWith(fontSize: 24)),
             const SizedBox(height: AppSpacing.xl),
             AppCard(
+              onTap: user == null
+                  ? null
+                  : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => EditProfileScreen(user: user))),
               child: Row(
                 children: [
                   Container(
