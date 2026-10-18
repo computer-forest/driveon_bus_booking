@@ -64,6 +64,9 @@ final paymentRepositoryProvider = Provider<PaymentRepository>(
     (ref) => MockPaymentRepository(ref.watch(mockBackendProvider)));
 final ratingRepositoryProvider = Provider<RatingRepository>(
     (ref) => MockRatingRepository(ref.watch(mockBackendProvider)));
+final pushPrefsRepositoryProvider = Provider<PushPrefsRepository>(
+    (ref) => MockPushPrefsRepository(ref.watch(mockBackendProvider)));
+final pushPrefsProvider = StreamProvider<PushPrefs>((ref) => ref.watch(pushPrefsRepositoryProvider).watch());
 final cancellationRepositoryProvider = Provider<CancellationRepository>(
     (ref) => MockCancellationRepository(ref.watch(mockBackendProvider)));
 

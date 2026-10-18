@@ -46,6 +46,21 @@ class AppUser {
       );
 }
 
+/// Which optional push messages a customer wants. Fares, confirmations,
+/// cancellations and bus changes are always sent, so they are not here.
+class PushPrefs {
+  const PushPrefs({this.reminders = true, this.tripUpdates = true});
+
+  /// Hold placed, about to run out, or expired.
+  final bool reminders;
+
+  /// Trip started, completed, and fully paid.
+  final bool tripUpdates;
+
+  PushPrefs copyWith({bool? reminders, bool? tripUpdates}) =>
+      PushPrefs(reminders: reminders ?? this.reminders, tripUpdates: tripUpdates ?? this.tripUpdates);
+}
+
 /// Global settings the availability engine and booking flow read. One
 /// document; admins edit it from the masters screen.
 class AppConfig {

@@ -1,7 +1,7 @@
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { logger } from "firebase-functions/v2";
-import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onDocumentWrittenWithAuthContext } from "firebase-functions/v2/firestore";
 
 /**
  * Writes an audit entry (ADM-13) for every staff change to master data.
@@ -12,8 +12,8 @@ import { onDocumentWritten } from "firebase-functions/v2/firestore";
  * the server itself (seeding, migrations) carry no `updatedBy`, or one that
  * starts with "system:", and are not audited.
  *
- * Limitation: a deletion carries no new document, so the actor of a delete
- * cannot be read from it; deleted entries are logged as "Staff".
+ * A deletion carries no new document, so its author is read from the event's
+ * auth context (who made the Firestore write) instead.
  */
 
 type Data = Record<string, unknown>;
@@ -50,7 +50,7 @@ async function actorName(uid: string): Promise<string> {
 
 function makeTrigger(collection: string) {
   const spec = SPECS[collection];
-  return onDocumentWritten({ document: `${collection}/{id}`, region: "asia-south1" }, async (event) => {
+  return onDocumentWrittenWithAuthContext({ document: `${collection}/{id}`, region: "asia-south1" }, async (event) => {
     const before = (event.data?.before.data() ?? undefined) as Data | undefined;
     const after = (event.data?.after.data() ?? undefined) as Data | undefined;
     const id = event.params.id;
@@ -78,7 +78,18 @@ function makeTrigger(collection: string) {
       const by = typeof before?.updatedBy === "string" ? before.updatedBy : "";
       if (by.startsWith("system:")) return;
       action = `${spec.entity} removed`;
-      actor = "Staff";
+      // Only a signed-in person's delete is attributed; server writes are not.
+      const signedIn = event.authId && !["service_account", "api_key", "system", "unauthenticated"].includes(event.authType);
+      if (signedIn) {
+        const uid = String(event.authId);
+        const name = await actorName(uid);
+        // An id that is not a known account (the emulator sends a placeholder)
+        // is not recorded as the author.
+        actor = name === uid ? "Staff" : name;
+        actorUid = name === uid ? null : uid;
+      } else {
+        actor = "Staff";
+      }
     }
 
     await getFirestore().collection("auditLog").add({

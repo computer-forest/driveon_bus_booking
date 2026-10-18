@@ -265,6 +265,18 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
     }
 
+    // Which optional push messages this person wants (missing = all on).
+    match /users/{uid}/prefs/push {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['reminders', 'tripUpdates', 'updatedAt'])
+        && request.resource.data.get('reminders', true) is bool
+        && request.resource.data.get('tripUpdates', true) is bool
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
     // Searches that found no bus, for the reports. Written by the server.
     match /searchMisses/{id} {
       allow read: if isAdmin();

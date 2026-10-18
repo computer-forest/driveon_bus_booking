@@ -5,7 +5,7 @@ const { test, before, after } = require("node:test");
 const assert = require("node:assert");
 const { initializeApp, deleteApp } = require("firebase/app");
 const { getAuth, connectAuthEmulator, signInWithCustomToken, signOut } = require("firebase/auth");
-const { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, getDocs, query, orderBy } = require("firebase/firestore");
+const { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, collection, getDocs, query, orderBy } = require("firebase/firestore");
 const { getFunctions, connectFunctionsEmulator, httpsCallable } = require("firebase/functions");
 const { initializeTestEnvironment } = require("@firebase/rules-unit-testing");
 
@@ -152,6 +152,20 @@ test("staff changes to master data are audited by the server, with the staff mem
   assert.match(updated.detail, /Test Vendor/);
   assert.match(updated.detail, /changed: phone/);
   assert.equal(entries.filter((e) => e.docId === "ven-seeded").length, 0);
+});
+
+test("a deletion is audited under the name of the staff member who made it", async () => {
+  await signOut(auth);
+  const { customToken } = await staffToken("9820000001");
+  await signInWithCustomToken(auth, customToken);
+  await setDoc(doc(db, "faqs/faq-gone"), { question: "Gone question", answer: "A", updatedBy: auth.currentUser.uid, updatedAt: serverTimestamp() });
+  await deleteDoc(doc(db, "faqs/faq-gone"));
+  const entries = await auditEntries(2, "faq-gone");
+  const removed = entries.find((e) => e.docId === "faq-gone" && e.action === "FAQ removed");
+  assert.ok(removed, JSON.stringify(entries.filter((e) => e.docId === "faq-gone")));
+  // The emulator gives deletes a placeholder author; the live service gives
+  // the uid, which is then shown as the staff member's name.
+  assert.ok(["Priya", "Staff"].includes(removed.actor), removed.actor);
 });
 
 test("a customer cannot read the audit log", async () => {

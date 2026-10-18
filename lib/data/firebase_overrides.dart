@@ -56,6 +56,11 @@ List<Override> firestoreRepositoryOverrides(
         .overrideWith((ref) => FirestorePaymentRepository(firestore, uid)),
     ratingRepositoryProvider
         .overrideWith((ref) => FirestoreRatingRepository(firestore, uid)),
+    // Choices belong to whoever is signed in.
+    pushPrefsRepositoryProvider.overrideWith((ref) {
+      ref.watch(authStateProvider.select((u) => u.value?.id));
+      return FirestorePushPrefsRepository(firestore, uid);
+    }),
     cancellationRepositoryProvider.overrideWith((ref) {
       final isAdmin =
           ref.watch(authStateProvider.select((u) => u.value?.isAdmin ?? false));

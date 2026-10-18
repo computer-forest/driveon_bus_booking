@@ -364,6 +364,36 @@ class FirestorePaymentRepository extends FirestoreBase implements PaymentReposit
   Stream<List<Payment>> watchAll() => list(db.collection('payments'), Codec.paymentFromMap);
 }
 
+class FirestorePushPrefsRepository extends FirestoreBase implements PushPrefsRepository {
+  FirestorePushPrefsRepository(super.db, super.currentUid);
+
+  DocumentReference<Map<String, dynamic>>? get _doc {
+    final uid = currentUid();
+    return uid == null ? null : db.doc('users/$uid/prefs/push');
+  }
+
+  @override
+  Stream<PushPrefs> watch() {
+    final doc = _doc;
+    if (doc == null) return Stream.value(const PushPrefs());
+    return doc.snapshots().map((s) {
+      final d = s.data();
+      return PushPrefs(reminders: d?['reminders'] != false, tripUpdates: d?['tripUpdates'] != false);
+    });
+  }
+
+  @override
+  Future<void> save(PushPrefs prefs) async {
+    final doc = _doc;
+    if (doc == null) throw const AuthException('Sign in first.');
+    await doc.set({
+      'reminders': prefs.reminders,
+      'tripUpdates': prefs.tripUpdates,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+}
+
 class FirestoreRatingRepository extends FirestoreBase implements RatingRepository {
   FirestoreRatingRepository(super.db, super.currentUid);
 

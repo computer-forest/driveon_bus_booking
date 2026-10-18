@@ -55,8 +55,35 @@ export async function staffUids(): Promise<string[]> {
   return snap.docs.map((d) => `staff_${d.id}`);
 }
 
+/**
+ * The notifications a customer may switch off as phone pushes. Everything
+ * else (fares, confirmations, cancellations, bus changes, staff alerts) is
+ * always pushed. The in-app inbox keeps every message either way.
+ */
+export const PUSH_GROUPS: Record<string, string> = {
+  "hold-created": "reminders",
+  "hold-expiring": "reminders",
+  "hold-expired": "reminders",
+  "trip-started": "tripUpdates",
+  "trip-completed": "tripUpdates",
+  settled: "tripUpdates",
+};
+
+/** True unless this person switched off the push group [kind] belongs to. */
+export async function pushWanted(uid: string, kind: string): Promise<boolean> {
+  const group = PUSH_GROUPS[kind];
+  if (!group) return true;
+  try {
+    const prefs = (await db().doc(`users/${uid}/prefs/push`).get()).data();
+    return prefs?.[group] !== false;
+  } catch {
+    return true;
+  }
+}
+
 async function push(uid: string, note: Note): Promise<void> {
   try {
+    if (!(await pushWanted(uid, note.kind))) return;
     const devices = await db().collection(`users/${uid}/devices`).get();
     const tokens = devices.docs.map((d) => d.id);
     if (tokens.length === 0) return;

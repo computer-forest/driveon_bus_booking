@@ -38,8 +38,10 @@ class MockBackend {
             StaffMember(phone: '91$p', name: 'Priya', active: true),
         ]),
         config = InMemoryValue(const AppConfig()),
+        pushPrefs = InMemoryValue(const PushPrefs()),
         user = InMemoryValue<AppUser?>(null);
 
+  final InMemoryValue<PushPrefs> pushPrefs;
   final InMemoryStore<BusRecord> buses;
   final InMemoryStore<Vendor> vendors;
   final InMemoryStore<DriverRecord> drivers;
@@ -461,6 +463,17 @@ class MockPaymentRepository implements PaymentRepository {
   @override
   Stream<List<Payment>> watchAll() => _b.payments.watch();
 
+}
+
+class MockPushPrefsRepository implements PushPrefsRepository {
+  MockPushPrefsRepository(this._b);
+  final MockBackend _b;
+
+  @override
+  Stream<PushPrefs> watch() => _b.pushPrefs.watch();
+
+  @override
+  Future<void> save(PushPrefs prefs) async => _b.pushPrefs.value = prefs;
 }
 
 class MockRatingRepository implements RatingRepository {

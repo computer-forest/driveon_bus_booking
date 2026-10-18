@@ -327,6 +327,17 @@ test("a person registers and removes their own phone for push, no one else's", a
   await assertSucceeds(deleteDoc(doc(me, "users/cust_919820011223/devices/tok-1")));
 });
 
+test("a person sets their own push choices, nobody else's, and only the two known switches", async () => {
+  const me = customer("cust_919820011223");
+  const path = "users/cust_919820011223/prefs/push";
+  await assertSucceeds(setDoc(doc(me, path), { reminders: false, tripUpdates: true, updatedAt: serverTimestamp() }));
+  await assertSucceeds(getDoc(doc(me, path)));
+  await assertFails(setDoc(doc(me, path), { reminders: "no", tripUpdates: true, updatedAt: serverTimestamp() }));
+  await assertFails(setDoc(doc(me, path), { reminders: true, confirmed: false, updatedAt: serverTimestamp() }));
+  await assertFails(setDoc(doc(customer("cust_919999999999"), path), { reminders: false, updatedAt: serverTimestamp() }));
+  await assertFails(getDoc(doc(customer("cust_919999999999"), path)));
+});
+
 test("only staff read the failed-search log, and nobody writes it", async () => {
   await seedDoc("searchMisses/m1", { customerId: "cust_919820011223", startsAt: "2026-10-10T10:00" });
   await assertSucceeds(getDoc(doc(admin(), "searchMisses/m1")));

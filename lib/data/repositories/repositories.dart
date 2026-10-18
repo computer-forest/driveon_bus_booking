@@ -176,6 +176,13 @@ abstract class PaymentRepository {
   Stream<List<Payment>> watchAll();
 }
 
+abstract class PushPrefsRepository {
+  /// The signed-in customer's choices; everything on until they change one.
+  Stream<PushPrefs> watch();
+
+  Future<void> save(PushPrefs prefs);
+}
+
 abstract class RatingRepository {
   Future<void> submit(Rating rating);
 

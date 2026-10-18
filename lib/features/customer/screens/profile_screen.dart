@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import 'notification_preferences_screen.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../data/providers.dart';
@@ -75,7 +76,8 @@ class ProfileScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.xl),
             const SectionLabel('Preferences'),
             const _BiometricToggle(),
-            _tile(context, Icons.notifications_none_rounded, 'Notification preferences', onTap: () {}),
+            _tile(context, Icons.notifications_none_rounded, 'Notification preferences',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationPreferencesScreen()))),
             const SizedBox(height: AppSpacing.lg),
             const SectionLabel('Support & legal'),
             _tile(
