@@ -407,4 +407,17 @@ class Codec {
         ],
         updatedAt: m['updatedAt'] as DateTime?,
       );
+
+  static Rating ratingFromMap(String id, Map<String, dynamic> m) => Rating(
+        id: id,
+        bookingId: m['bookingId'] is String ? m['bookingId'] as String : '',
+        // Customers write these, so read them defensively: one odd value must
+        // not break the staff screen for everyone.
+        bus: m['bus'] is num ? (m['bus'] as num).toInt() : 0,
+        driver: m['driver'] is num ? (m['driver'] as num).toInt() : 0,
+        overall: m['overall'] is num ? (m['overall'] as num).toInt() : 0,
+        feedback: m['feedback'] is String ? m['feedback'] as String : '',
+        // A rating just written has no server time for a moment.
+        createdAt: (m['createdAt'] as DateTime?) ?? DateTime.now(),
+      );
 }

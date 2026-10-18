@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/app_info.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_gradients.dart';
 import '../../../core/theme/app_radius.dart';
@@ -29,7 +30,8 @@ class HomeSearchScreen extends ConsumerStatefulWidget {
 class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
   int _tripTypeIndex = 0; // 0 = single trip, 1 = round trip
   int _scopeIndex = 0; // 0 = local, 1 = outstation
-  int? _capacityIndex = 1;
+  /// Seats the customer asked for; null means any size. Nothing is chosen by default.
+  int? _capacity;
   final _landmark = TextEditingController();
 
   late DateTime _pickupDate = _today;
@@ -41,10 +43,11 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
   DateTime get _today => dateOnly(ref.read(clockProvider)());
   TimeOfDay _returnTime = const TimeOfDay(hour: 17, minute: 0);
 
-  LocationEntry _pickupLocation = const LocationEntry(city: 'Thane', area: 'Thane West');
-  LocationEntry _dropLocation = const LocationEntry(city: 'Mahabaleshwar', area: 'Main Market');
+  // Chosen by the customer from the staff-maintained list; nothing is assumed.
+  LocationEntry? _pickupLocation;
+  LocationEntry? _dropLocation;
 
-  static const _capacities = [17, 20, 35, 40];
+  bool get _canSearch => _pickupLocation != null && _dropLocation != null;
 
   bool get _isRoundTrip => _tripTypeIndex == 1;
 
@@ -57,21 +60,29 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
   void _onNavTap(int index) {
     switch (index) {
       case 1:
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyBookingsScreen()));
+        Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const MyBookingsScreen()));
       case 2:
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+        Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const NotificationsScreen()));
       case 3:
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
+        Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
     }
   }
 
   Future<void> _pickLocation({required bool pickup}) async {
     final result = await Navigator.of(context).push<LocationEntry>(
-      MaterialPageRoute(builder: (_) => LocationPickerScreen(title: pickup ? 'Pickup location' : 'Drop location')),
+      MaterialPageRoute(
+          builder: (_) => LocationPickerScreen(
+              title: pickup ? 'Pickup location' : 'Drop location')),
     );
     if (result == null) return;
     // Best effort: a failure to remember the search must not block the form.
-    ref.read(locationRepositoryProvider).markRecent(result).catchError((Object _) {});
+    ref
+        .read(locationRepositoryProvider)
+        .markRecent(result)
+        .catchError((Object _) {});
     setState(() {
       if (pickup) {
         _pickupLocation = result;
@@ -81,9 +92,21 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
     });
   }
 
+  /// "Mumbai", "Mumbai and Thane", "Mumbai, Navi Mumbai and Thane".
+  static String _joinCities(List<String> cities) {
+    if (cities.length <= 1) return cities.join();
+    return '${cities.sublist(0, cities.length - 1).join(', ')} and ${cities.last}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    // Both come from what staff maintain, so changing them needs no new release.
+    final capacities = [...ref.watch(appConfigProvider).config.capacities]
+      ..sort();
+    final packageCities = [
+      for (final p in ref.watch(packagesProvider).items) p.city
+    ];
     return Scaffold(
       body: SafeArea(
         child: ListView(
@@ -91,15 +114,18 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
           children: [
             _hero(textTheme),
             Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, AppSpacing.xxl),
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, AppSpacing.xxl),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _segmented(['Single trip', 'Round trip'], _tripTypeIndex, (i) => setState(() => _tripTypeIndex = i)),
+                  _segmented(['Single trip', 'Round trip'], _tripTypeIndex,
+                      (i) => setState(() => _tripTypeIndex = i)),
                   const SizedBox(height: AppSpacing.xl),
                   const SectionLabel('Trip type'),
-                  _choiceChips(['Local', 'Outstation'], _scopeIndex, (i) => setState(() => _scopeIndex = i)),
-                  if (_scopeIndex == 1) ...[
+                  _choiceChips(['Local', 'Outstation'], _scopeIndex,
+                      (i) => setState(() => _scopeIndex = i)),
+                  if (_scopeIndex == 1 && packageCities.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.lg),
                     AppCard(
                       padding: const EdgeInsets.symmetric(
@@ -107,34 +133,39 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
                         vertical: AppSpacing.md,
                       ),
                       onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const PopularPackagesScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const PopularPackagesScreen()),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.local_offer_outlined, size: 19, color: AppColors.primary),
+                          const Icon(Icons.local_offer_outlined,
+                              size: 19, color: AppColors.primary),
                           const SizedBox(width: AppSpacing.md),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Popular outstation packages', style: textTheme.titleSmall),
+                                Text('Popular outstation packages',
+                                    style: textTheme.titleSmall),
                                 Text(
-                                  'Fixed return rates from Mumbai, Navi Mumbai and Thane',
+                                  'Fixed return rates from ${_joinCities(packageCities)}',
                                   style: textTheme.labelMedium,
                                 ),
                               ],
                             ),
                           ),
-                          const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textTertiary),
+                          const Icon(Icons.chevron_right_rounded,
+                              size: 18, color: AppColors.textTertiary),
                         ],
                       ),
                     ),
                   ],
                   const SizedBox(height: AppSpacing.xl),
                   LabeledField(
-                    key: ValueKey('pickup-${_pickupLocation.label}'),
+                    key: ValueKey('pickup-${_pickupLocation?.label}'),
                     label: 'Pickup — city / area',
-                    initialValue: _pickupLocation.label,
+                    hint: 'Choose where to start',
+                    initialValue: _pickupLocation?.label,
                     readOnly: true,
                     suffixIcon: Icons.place_outlined,
                     onTap: () => _pickLocation(pickup: true),
@@ -168,9 +199,10 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   LabeledField(
-                    key: ValueKey('drop-${_dropLocation.label}'),
+                    key: ValueKey('drop-${_dropLocation?.label}'),
                     label: 'Drop — city / area',
-                    initialValue: _dropLocation.label,
+                    hint: 'Choose where to go',
+                    initialValue: _dropLocation?.label,
                     readOnly: true,
                     suffixIcon: Icons.place_outlined,
                     onTap: () => _pickLocation(pickup: false),
@@ -207,12 +239,16 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primary),
+                          const Icon(Icons.info_outline_rounded,
+                              size: 16, color: AppColors.primary),
                           const SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: Text(
                               'The bus stays with you for the whole round trip, including any days in between.',
-                              style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppColors.primary),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelMedium
+                                  ?.copyWith(color: AppColors.primary),
                             ),
                           ),
                         ],
@@ -246,41 +282,55 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
                   Wrap(
                     spacing: AppSpacing.sm,
                     runSpacing: AppSpacing.sm,
-                    children: List.generate(_capacities.length, (i) {
-                      final selected = _capacityIndex == i;
-                      return _CapacityChip(
-                        label: '${_capacities[i]}',
-                        selected: selected,
-                        onTap: () => setState(() => _capacityIndex = i),
-                      );
-                    }),
+                    children: [
+                      for (final c in capacities)
+                        _CapacityChip(
+                          label: '$c',
+                          selected: _capacity == c,
+                          // Tapping the chosen size again goes back to "any size".
+                          onTap: () => setState(
+                              () => _capacity = _capacity == c ? null : c),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: AppSpacing.xxxl),
+                  if (!_canSearch)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                      child: Text('Choose a pickup and a drop to search.',
+                          style: textTheme.labelMedium),
+                    ),
                   PrimaryButton(
                     label: 'Search buses',
                     icon: Icons.search_rounded,
-                    onPressed: () {
-                      final summary =
-                          '${_pickupLocation.area} → ${_dropLocation.area} · ${AppDateFormat.dayMonthYear(_pickupDate)}, ${AppDateFormat.hourMinute(_pickupTime)}'
-                          '${_isRoundTrip ? ' · returns ${AppDateFormat.dayMonthYear(_returnDate)}' : ''}';
-                      final criteria = SearchCriteria(
-                        pickup: _pickupLocation,
-                        drop: _dropLocation,
-                        pickupDate: _pickupDate,
-                        pickupTime: _pickupTime,
-                        dropDate: _dropDate,
-                        dropTime: _dropTime,
-                        isRoundTrip: _isRoundTrip,
-                        returnDate: _returnDate,
-                        returnTime: _returnTime,
-                        capacity: _capacityIndex == null ? null : _capacities[_capacityIndex!],
-                        pickupLandmark: _landmark.text.trim(),
-                        summary: summary,
-                      );
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => ResultsScreen(criteria: criteria)),
-                      );
-                    },
+                    onPressed: !_canSearch
+                        ? null
+                        : () {
+                            final pickup = _pickupLocation!;
+                            final drop = _dropLocation!;
+                            final summary =
+                                '${pickup.area} → ${drop.area} · ${AppDateFormat.dayMonthYear(_pickupDate)}, ${AppDateFormat.hourMinute(_pickupTime)}'
+                                '${_isRoundTrip ? ' · returns ${AppDateFormat.dayMonthYear(_returnDate)}' : ''}';
+                            final criteria = SearchCriteria(
+                              pickup: pickup,
+                              drop: drop,
+                              pickupDate: _pickupDate,
+                              pickupTime: _pickupTime,
+                              dropDate: _dropDate,
+                              dropTime: _dropTime,
+                              isRoundTrip: _isRoundTrip,
+                              returnDate: _returnDate,
+                              returnTime: _returnTime,
+                              capacity: _capacity,
+                              pickupLandmark: _landmark.text.trim(),
+                              summary: summary,
+                            );
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      ResultsScreen(criteria: criteria)),
+                            );
+                          },
                   ),
                 ],
               ),
@@ -295,7 +345,8 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
   Widget _hero(TextTheme textTheme) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, AppSpacing.xxxl),
+      padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, AppSpacing.xxxl),
       decoration: const BoxDecoration(
         gradient: AppGradients.hero,
         borderRadius: BorderRadius.only(
@@ -315,11 +366,12 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
                   color: Colors.white.withValues(alpha: 0.16),
                   borderRadius: AppRadius.controlRadius,
                 ),
-                child: const Icon(Icons.directions_bus_filled_rounded, color: Colors.white, size: 22),
+                child: const Icon(Icons.directions_bus_filled_rounded,
+                    color: Colors.white, size: 22),
               ),
               const SizedBox(width: AppSpacing.md),
               Text(
-                'CharterBooking',
+                appName,
                 style: textTheme.titleMedium?.copyWith(color: Colors.white),
               ),
             ],
@@ -327,22 +379,26 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
           const SizedBox(height: AppSpacing.xxl),
           Text(
             'Find a bus',
-            style: textTheme.displaySmall?.copyWith(color: Colors.white, fontSize: 26),
+            style: textTheme.displaySmall
+                ?.copyWith(color: Colors.white, fontSize: 26),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
             'One vehicle, confirmed by our team — no seats to pick.',
-            style: textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
+            style: textTheme.bodyMedium
+                ?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
           ),
         ],
       ),
     );
   }
 
-  Widget _segmented(List<String> labels, int selected, ValueChanged<int> onChanged) {
+  Widget _segmented(
+      List<String> labels, int selected, ValueChanged<int> onChanged) {
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: AppRadius.controlRadius),
+      decoration: BoxDecoration(
+          color: AppColors.surface, borderRadius: AppRadius.controlRadius),
       child: Row(
         children: List.generate(labels.length, (i) {
           final isSelected = i == selected;
@@ -356,16 +412,24 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
                 decoration: BoxDecoration(
                   color: isSelected ? AppColors.background : Colors.transparent,
                   borderRadius: AppRadius.controlRadius,
-                  border: isSelected ? Border.all(color: AppColors.border) : null,
+                  border:
+                      isSelected ? Border.all(color: AppColors.border) : null,
                   boxShadow: isSelected
-                      ? const [BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 2))]
+                      ? const [
+                          BoxShadow(
+                              color: Color(0x14000000),
+                              blurRadius: 8,
+                              offset: Offset(0, 2))
+                        ]
                       : null,
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   labels[i],
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
                       ),
                 ),
               ),
@@ -376,13 +440,15 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
     );
   }
 
-  Widget _choiceChips(List<String> labels, int selected, ValueChanged<int> onChanged) {
+  Widget _choiceChips(
+      List<String> labels, int selected, ValueChanged<int> onChanged) {
     final textTheme = Theme.of(context).textTheme;
     return Row(
       children: List.generate(labels.length, (i) {
         final isSelected = i == selected;
         return Padding(
-          padding: EdgeInsets.only(right: i == labels.length - 1 ? 0 : AppSpacing.sm),
+          padding: EdgeInsets.only(
+              right: i == labels.length - 1 ? 0 : AppSpacing.sm),
           child: ChoiceChip(
             label: Text(labels[i]),
             selected: isSelected,
@@ -391,7 +457,8 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
             labelStyle: textTheme.labelMedium?.copyWith(
               color: isSelected ? AppColors.onPrimary : AppColors.textPrimary,
             ),
-            side: BorderSide(color: isSelected ? AppColors.primary : AppColors.border),
+            side: BorderSide(
+                color: isSelected ? AppColors.primary : AppColors.border),
             showCheckmark: false,
           ),
         );
@@ -401,7 +468,8 @@ class _HomeSearchScreenState extends ConsumerState<HomeSearchScreen> {
 }
 
 class _CapacityChip extends StatelessWidget {
-  const _CapacityChip({required this.label, required this.selected, required this.onTap});
+  const _CapacityChip(
+      {required this.label, required this.selected, required this.onTap});
 
   final String label;
   final bool selected;
@@ -419,9 +487,15 @@ class _CapacityChip extends StatelessWidget {
           gradient: selected ? AppGradients.primary : null,
           color: selected ? null : AppColors.surface,
           borderRadius: AppRadius.controlRadius,
-          border: Border.all(color: selected ? Colors.transparent : AppColors.border),
+          border: Border.all(
+              color: selected ? Colors.transparent : AppColors.border),
           boxShadow: selected
-              ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4))]
+              ? [
+                  BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.25),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4))
+                ]
               : null,
         ),
         child: Text(

@@ -6,6 +6,7 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 
 import { Blackout, Bus, DayWindow, Occupied, dayStart, isBusFree, occupiesBus, parseIst } from "./availability";
 import { warnExpiringHolds } from "./bookingEvents";
+import { requireActiveStaff } from "./staffGuard";
 
 const db = (): Firestore => getFirestore();
 
@@ -22,11 +23,6 @@ function requireUid(request: CallableRequest): string {
   return uid;
 }
 
-function requireAdmin(request: CallableRequest): string {
-  const uid = requireUid(request);
-  if (request.auth?.token.role !== "admin") throw new HttpsError("permission-denied", "Staff only.");
-  return uid;
-}
 
 const ms = (v: unknown): number | null => (v instanceof Timestamp ? v.toMillis() : null);
 
@@ -279,13 +275,14 @@ const EDITABLE = ["requested", "costConfirmed", "confirmed"];
  *     startTrip                                      confirmed -> inTrip
  *     completeTrip                                   inTrip -> completed
  *     recordBalance { amount, mode?, reference? }   completed -> settled
- *     reallocate    { newBusId }
+ *     reallocate    { newBusId, reason?, revisedFare? }   reason is kept on the booking and in the audit log;
+ *                   revisedFare replaces the total fare, but never below what was already paid
  *     cancel        { reason?, refundAmount?, mode?, reference?, requestId? }   releases the bus; records any refund;
  *                   with requestId it approves that customer request
  *     declineCancellation { requestId, note? }
  */
 export const bookingAction = onCall(async (request) => {
-  const staffUid = requireAdmin(request);
+  const staffUid = await requireActiveStaff(request);
   const bookingId = text(request.data?.bookingId, 80);
   const action = request.data?.action as Action;
   if (!bookingId) throw new HttpsError("invalid-argument", "bookingId is required.");
@@ -435,14 +432,35 @@ export const bookingAction = onCall(async (request) => {
         if (!isBusFree(toBus(newBusId, busSnap.data()!), start, end, occupied, blackouts)) {
           throw new HttpsError("failed-precondition", "bus-unavailable");
         }
+        const reason = text(request.data?.reason, 200);
+        const revisedRaw = request.data?.revisedFare;
+        const revisedFare = revisedRaw === undefined || revisedRaw === null ? null : money(revisedRaw, "The revised fare", 1);
+        if (revisedFare !== null && revisedFare < Number(b.amountPaid)) {
+          throw new HttpsError(
+            "failed-precondition",
+            `The fare cannot be less than the \u20B9${b.amountPaid} already paid.`,
+          );
+        }
         tx.set(lockRef, { n: FieldValue.increment(1), at: FieldValue.serverTimestamp() });
         tx.update(ref, {
           busId: newBusId,
           busReg: String(busSnap.data()!.regNumber ?? ""),
           driverName: String(busSnap.data()!.driverName ?? ""),
           capacity: Number(busSnap.data()!.capacity ?? b.capacity),
+          reallocationReason: reason,
+          reallocatedFrom: String(b.busReg ?? ""),
+          reallocatedAt: FieldValue.serverTimestamp(),
+          ...(revisedFare !== null ? { totalFare: revisedFare } : {}),
         });
-        audit(tx, actor, staffUid, "Booking moved to another bus", `${reference} · ${b.busReg} → ${busSnap.data()!.regNumber}`, bookingId);
+        const fareNote = revisedFare !== null && revisedFare !== Number(b.totalFare) ? ` · fare \u20B9${b.totalFare} \u2192 \u20B9${revisedFare}` : "";
+        audit(
+          tx,
+          actor,
+          staffUid,
+          "Booking moved to another bus",
+          `${reference} · ${b.busReg} \u2192 ${busSnap.data()!.regNumber}${reason ? ` · ${reason}` : ""}${fareNote}`,
+          bookingId,
+        );
         return { stage };
       }
       default:

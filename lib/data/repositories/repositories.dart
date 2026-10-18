@@ -70,8 +70,10 @@ abstract class BookingRepository {
   /// Records the balance received and settles the booking.
   Future<void> recordBalance(String bookingId, {required int amount, String mode = 'Cash', String reference = ''});
 
-  /// Moves the booking to [newBusId], same dates, if that bus is free.
-  Future<void> reallocate(String bookingId, String newBusId);
+  /// Moves the booking to [newBusId], same dates, if that bus is free. The
+  /// [reason] is kept with the booking; [revisedFare], if given, replaces the
+  /// total fare (never below what has already been paid).
+  Future<void> reallocate(String bookingId, String newBusId, {String reason = '', int? revisedFare});
 
   /// Cancels and releases the bus. [refundAmount] (at most what was paid) is
   /// recorded as paid back outside the app. With [requestId] this approves
@@ -176,6 +178,9 @@ abstract class PaymentRepository {
 
 abstract class RatingRepository {
   Future<void> submit(Rating rating);
+
+  /// Every rating, newest first. Staff only.
+  Stream<List<Rating>> watchAll();
 }
 
 abstract class CancellationRepository {

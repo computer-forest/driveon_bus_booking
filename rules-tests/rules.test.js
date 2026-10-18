@@ -20,10 +20,16 @@ before(async () => {
 });
 
 after(async () => env.cleanup());
-beforeEach(async () => env.clearFirestore());
+beforeEach(async () => {
+  await env.clearFirestore();
+  // The staff member the admin() context stands for is on the live staff list.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "staff/919820000001"), { name: "Priya", active: true });
+  });
+});
 
 const customer = (uid) => env.authenticatedContext(uid, { role: "customer" }).firestore();
-const admin = () => env.authenticatedContext("adm-1", { role: "admin" }).firestore();
+const admin = () => env.authenticatedContext("staff_919820000001", { role: "admin" }).firestore();
 const anon = () => env.unauthenticatedContext().firestore();
 
 const newProfile = () => ({
@@ -101,7 +107,7 @@ test("collections that are not open yet stay closed to customers and admins alik
 
 const { Timestamp } = require("firebase/firestore");
 
-const stamp = () => ({ updatedBy: "adm-1", updatedAt: serverTimestamp() });
+const stamp = () => ({ updatedBy: "staff_919820000001", updatedAt: serverTimestamp() });
 
 const validBus = () => ({
   regNumber: "MH-04-BT-7781",
@@ -367,4 +373,49 @@ test("staff can see who has staff access, but customers and visitors cannot, and
     await assertFails(updateDoc(doc(db, "staff/919820000001"), { active: false }));
     await assertFails(deleteDoc(doc(db, "staff/919820000001")));
   }
+});
+
+test("every score in a rating must be a whole number from 1 to 5, so a bad value cannot reach the staff screen", async () => {
+  await seedDoc("bookings/bk-1", booking("cust_919820011223"));
+  const me = customer("cust_919820011223");
+  const base = { bookingId: "bk-1", bus: 5, driver: 4, overall: 5, feedback: "ok", customerId: "cust_919820011223", createdAt: serverTimestamp() };
+  await assertSucceeds(setDoc(doc(me, "ratings/ok"), base));
+  await assertFails(setDoc(doc(me, "ratings/b1"), { ...base, bus: "five" }));
+  await assertFails(setDoc(doc(me, "ratings/b2"), { ...base, bus: 0 }));
+  await assertFails(setDoc(doc(me, "ratings/b3"), { ...base, driver: 9 }));
+  await assertFails(setDoc(doc(me, "ratings/b4"), { ...base, driver: 3.5 }));
+  await assertFails(setDoc(doc(me, "ratings/b5"), { bookingId: "bk-1", overall: 5, feedback: "", customerId: "cust_919820011223", createdAt: serverTimestamp() })); // scores missing
+});
+
+// --- removal takes effect at once ---------------------------------------
+
+test("a staff member who is switched off loses access immediately, even though their token still says admin", async () => {
+  await seedDoc("vendors/v1", { name: "V" });
+  await assertSucceeds(getDoc(doc(admin(), "vendors/v1")));
+  await assertSucceeds(setDoc(doc(admin(), "locations/l1"), { city: "A", area: "B", ...stamp() }));
+
+  await seedDoc("staff/919820000001", { name: "Priya", active: false }); // switched off, token unchanged
+  await assertFails(getDoc(doc(admin(), "vendors/v1")));
+  await assertFails(setDoc(doc(admin(), "locations/l2"), { city: "A", area: "B", ...stamp() }));
+  await assertFails(getDocs(collection(admin(), "staff")));
+  await assertFails(getDocs(collection(admin(), "bookings")));
+
+  await seedDoc("staff/919820000001", { name: "Priya", active: true }); // switched back on
+  await assertSucceeds(getDoc(doc(admin(), "vendors/v1")));
+});
+
+test("a staff member who is deleted from the list loses access too", async () => {
+  await seedDoc("vendors/v1", { name: "V" });
+  await env.withSecurityRulesDisabled(async (ctx) => deleteDoc(doc(ctx.firestore(), "staff/919820000001")));
+  await assertFails(getDoc(doc(admin(), "vendors/v1")));
+});
+
+test("the admin claim on an account that is not a listed staff account is worth nothing", async () => {
+  await seedDoc("vendors/v1", { name: "V" });
+  const imposter = env.authenticatedContext("cust_919820011223", { role: "admin" }).firestore();
+  await assertFails(getDoc(doc(imposter, "vendors/v1")));
+  const odd = env.authenticatedContext("adm-1", { role: "admin" }).firestore();
+  await assertFails(getDoc(doc(odd, "vendors/v1")));
+  const unlisted = env.authenticatedContext("staff_919999999999", { role: "admin" }).firestore();
+  await assertFails(getDoc(doc(unlisted, "vendors/v1")));
 });

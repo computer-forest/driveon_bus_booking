@@ -11,12 +11,32 @@ class NestedNavigatorShell extends StatefulWidget {
 
   final Widget home;
 
+  static GlobalKey<NavigatorState>? _active;
+
+  /// The navigator of the flow on screen right now, or null between flows.
+  /// Lets something outside the widget tree (a tapped notification) open a
+  /// screen inside the current flow.
+  static NavigatorState? get activeNavigator => _active?.currentState;
+
   @override
   State<NestedNavigatorShell> createState() => _NestedNavigatorShellState();
 }
 
 class _NestedNavigatorShellState extends State<NestedNavigatorShell> {
   final _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  void initState() {
+    super.initState();
+    NestedNavigatorShell._active = _navigatorKey;
+  }
+
+  @override
+  void dispose() {
+    if (NestedNavigatorShell._active == _navigatorKey) NestedNavigatorShell._active = null;
+    super.dispose();
+  }
+
   late final _observer = _StackObserver(_syncCanPop);
   bool _canPop = false;
 

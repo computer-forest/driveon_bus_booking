@@ -4,6 +4,7 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:charter_booking_ui/data/models.dart';
 import 'package:charter_booking_ui/data/repositories/repositories.dart';
 import 'package:charter_booking_ui/features/auth/data/firebase_auth_repository.dart';
 import 'package:charter_booking_ui/features/auth/data/secure_store.dart';
@@ -185,6 +186,81 @@ void main() {
       final user = await repo(auth).authState().first;
       expect(user?.isAdmin, isTrue);
       expect(user?.onboarded, isTrue);
+    });
+  });
+
+  group('removed staff are signed out at once', () {
+    MockFirebaseAuth signedInStaff() => MockFirebaseAuth(
+          mockUser: MockUser(uid: 'staff_919820000001', displayName: 'Priya', customClaim: {'role': 'admin'}),
+          signedIn: true,
+        );
+
+    FirebaseAuthRepository repoWith(MockFirebaseAuth auth, List<String> notices) => FirebaseAuthRepository(
+          auth: auth,
+          firestore: firestore,
+          functions: functions,
+          store: store,
+          onNotice: notices.add,
+        );
+
+    Future<void> pump() => Future<void>.delayed(const Duration(milliseconds: 50));
+
+    test('switching the person off signs them out and tells them why', () async {
+      await firestore.doc('staff/919820000001').set({'name': 'Priya', 'active': true});
+      await store.write(StoreKeys.sessionOnboarded, 'true');
+      final auth = signedInStaff();
+      final notices = <String>[];
+      final emitted = <AppUser?>[];
+      final sub = repoWith(auth, notices).authState().listen(emitted.add);
+      await pump();
+      expect(emitted.last?.isAdmin, isTrue);
+      expect(auth.currentUser, isNotNull);
+
+      await firestore.doc('staff/919820000001').update({'active': false});
+      await pump();
+
+      expect(auth.currentUser, isNull);
+      expect(emitted.last, isNull);
+      expect(notices.single, contains('staff access has been switched off'));
+      await sub.cancel();
+    });
+
+    test('being removed from the list entirely does the same', () async {
+      await firestore.doc('staff/919820000001').set({'name': 'Priya', 'active': true});
+      final auth = signedInStaff();
+      final notices = <String>[];
+      final sub = repoWith(auth, notices).authState().listen((_) {});
+      await pump();
+      await firestore.doc('staff/919820000001').delete();
+      await pump();
+      expect(auth.currentUser, isNull);
+      expect(notices, hasLength(1));
+      await sub.cancel();
+    });
+
+    test('a staff member who stays on the list is left alone', () async {
+      await firestore.doc('staff/919820000001').set({'name': 'Priya', 'active': true});
+      final auth = signedInStaff();
+      final notices = <String>[];
+      final sub = repoWith(auth, notices).authState().listen((_) {});
+      await pump();
+      await firestore.doc('staff/919820000001').update({'name': 'Priya Sharma'});
+      await pump();
+      expect(auth.currentUser, isNotNull);
+      expect(notices, isEmpty);
+      await sub.cancel();
+    });
+
+    test('a customer is never watched or signed out by the staff list', () async {
+      final auth = MockFirebaseAuth(mockUser: MockUser(uid: 'cust_919820011223'), signedIn: true);
+      final notices = <String>[];
+      final sub = repoWith(auth, notices).authState().listen((_) {});
+      await pump();
+      await firestore.doc('staff/919820011223').set({'name': 'Someone', 'active': false});
+      await pump();
+      expect(auth.currentUser, isNotNull);
+      expect(notices, isEmpty);
+      await sub.cancel();
     });
   });
 }

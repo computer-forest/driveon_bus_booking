@@ -3,6 +3,8 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { logger } from "firebase-functions/v2";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 
+import { requireActiveStaff } from "./staffGuard";
+
 /**
  * Staff manage who else has staff access (the `staff` allow-list that
  * `verifyMsg91Token` checks at sign-in). The app never writes that list
@@ -39,8 +41,7 @@ function cleanName(raw: unknown): string {
 }
 
 export const manageStaff = onCall(async (request) => {
-  if (request.auth?.token.role !== "admin") throw new HttpsError("permission-denied", "Staff only.");
-  const actorUid = request.auth.uid;
+  const actorUid = await requireActiveStaff(request);
   const action = request.data?.action;
   const phone = normalizePhone(request.data?.phone);
   if (!phone) throw new HttpsError("invalid-argument", "Enter a valid 10-digit mobile number.");

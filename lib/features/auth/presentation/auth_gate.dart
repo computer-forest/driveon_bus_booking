@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models.dart';
 import '../../../data/providers.dart';
+import '../../notifications/push_navigation.dart';
+import '../../notifications/push_service.dart';
 import '../data/secure_store.dart';
 import 'lock_screen.dart';
 
@@ -27,17 +31,52 @@ class _AuthGateState extends ConsumerState<AuthGate> with WidgetsBindingObserver
   bool _locked = false;
   DateTime? _pausedAt;
 
+  /// A tapped notification waiting for somewhere to open: the app may still be
+  /// locked, signing in, or not yet showing a screen.
+  PushTap? _pendingTap;
+  StreamSubscription<PushTap>? _tapSub;
+  Timer? _tapRetry;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _lockIfNeeded();
+    final push = ref.read(pushServiceProvider);
+    _tapSub = push.taps.listen(_onTap);
+    push.launchTap().then((tap) {
+      if (tap != null && mounted) _onTap(tap);
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _tapSub?.cancel();
+    _tapRetry?.cancel();
     super.dispose();
+  }
+
+  void _onTap(PushTap tap) {
+    _pendingTap = tap;
+    _openPendingTap();
+  }
+
+  /// Opens the waiting notification once the app is unlocked and a screen is
+  /// up, trying again for a few seconds while it starts or the person signs in.
+  Future<void> _openPendingTap({int attempt = 0}) async {
+    final tap = _pendingTap;
+    if (tap == null || !mounted) return;
+    _tapRetry?.cancel();
+    if (!_locked && await openPushTap(ref, tap)) {
+      if (_pendingTap == tap) _pendingTap = null;
+      return;
+    }
+    if (attempt >= 20) {
+      _pendingTap = null; // the person never got in; do not surprise them later
+      return;
+    }
+    _tapRetry = Timer(const Duration(milliseconds: 500), () => _openPendingTap(attempt: attempt + 1));
   }
 
   Future<void> _lockIfNeeded() async {

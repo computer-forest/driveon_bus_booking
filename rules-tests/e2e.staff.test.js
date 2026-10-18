@@ -116,7 +116,7 @@ test("switching someone off ends their access: they cannot sign in as staff agai
   assert.ok(log.some((e) => e.action === "Staff access restored"));
 });
 
-test("you cannot switch yourself off, and the last active person cannot be switched off", async () => {
+test("you cannot switch yourself off, and someone switched off cannot act on an old session", async () => {
   await reset();
   const priya = await client("9820000001", "staff");
   await rejectsWith(manage(priya, { action: "setActive", phone: "9820000001", active: false }), "failed-precondition", "You cannot switch off your own access.");
@@ -125,8 +125,8 @@ test("you cannot switch yourself off, and the last active person cannot be switc
   const second = await client("9820066009", "staff");
   // Priya switches the second person off, leaving only herself: fine. Then the second person cannot act.
   await manage(priya, { action: "setActive", phone: "9820066009", active: false });
-  // The last active member cannot be removed, even by someone else holding an old session.
-  await rejectsWith(manage(second, { action: "setActive", phone: "9820000001", active: false }), "failed-precondition", "At least one person must keep staff access.");
+  // Someone switched off, still holding an old session, can no longer act at all.
+  await rejectsWith(manage(second, { action: "setActive", phone: "9820000001", active: false }), "permission-denied", "Your staff access has been switched off.");
   assert.equal((await readDoc("staff/919820000001")).data().active, true);
 });
 
@@ -146,4 +146,34 @@ test("staff can read the list through the app, which shows who has access", asyn
   const priya = await client("9820000001", "staff");
   const names = (await getDocs(collection(priya.db, "staff"))).docs.map((d) => d.data().name);
   assert.deepEqual(names, ["Priya"]);
+});
+
+test("removal is immediate: a signed-in staff member loses every action and every read the moment they are switched off", async () => {
+  await reset();
+  await seed((db) => setDoc(doc(db, "vendors/v1"), { name: "V", active: true, updatedBy: "system:seed" }));
+  const priya = await client("9820000001", "staff");
+  await manage(priya, { action: "add", phone: "9820066020", name: "Short Timer" });
+  const temp = await client("9820066020", "staff");
+
+  // Working normally, on a token that says admin.
+  assert.equal((await getDoc(doc(temp.db, "vendors/v1"))).data().name, "V");
+  assert.equal((await getDocs(collection(temp.db, "staff"))).size, 2);
+  assert.equal((await temp.auth.currentUser.getIdTokenResult()).claims.role, "admin");
+
+  await manage(priya, { action: "setActive", phone: "9820066020", active: false });
+
+  // The token has not expired and has not been refreshed...
+  const stillSays = (await temp.auth.currentUser.getIdTokenResult()).claims.role;
+  assert.equal(stillSays, "admin");
+  // ...but nothing works any more.
+  await assert.rejects(getDoc(doc(temp.db, "vendors/v1")));
+  await assert.rejects(getDocs(collection(temp.db, "staff")));
+  await rejectsWith(manage(temp, { action: "add", phone: "9820066021", name: "Sneaky" }), "permission-denied", "Your staff access has been switched off.");
+  await rejectsWith(temp.call("bookingAction", { bookingId: "x", action: "confirmCost", fare: 1 }), "permission-denied", "Your staff access has been switched off.");
+  await rejectsWith(temp.call("setUserRole", { uid: "cust_919820011223", role: "admin" }), "permission-denied", "Your staff access has been switched off.");
+  assert.equal((await readDoc("staff/919820066021")).exists(), false);
+
+  // Switched back on, the same session works again with no new sign-in.
+  await manage(priya, { action: "setActive", phone: "9820066020", active: true });
+  assert.equal((await getDoc(doc(temp.db, "vendors/v1"))).data().name, "V");
 });

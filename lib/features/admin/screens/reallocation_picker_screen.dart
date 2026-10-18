@@ -6,6 +6,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../core/utils/date_format.dart';
+import '../../../core/utils/money_format.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../data/availability.dart';
 import '../../../data/models.dart';
@@ -15,15 +16,30 @@ import '../../../data/providers.dart';
 /// buffer), a mandatory reason, and — for a round trip — the new bus must
 /// be free for the entire remaining window, not just one leg.
 ///
-/// Pops the chosen [BusRecord], or nothing if the admin backs out.
+/// What staff decided: the bus, why, and a new fare if the cost changes.
+class ReallocationChoice {
+  const ReallocationChoice({required this.bus, required this.reason, this.revisedFare});
+
+  final BusRecord bus;
+  final String reason;
+  final int? revisedFare;
+}
+
+/// Pops the [ReallocationChoice], or nothing if the admin backs out.
 class ReallocationPickerScreen extends ConsumerStatefulWidget {
   const ReallocationPickerScreen({
     super.key,
     required this.currentBusId,
     required this.start,
     required this.end,
+    this.currentFare = 0,
+    this.amountPaid = 0,
   });
 
+  /// Shown and used to pre-fill the revised fare; the fare can never be set
+  /// below [amountPaid].
+  final int currentFare;
+  final int amountPaid;
   final String currentBusId;
   final DateTime start;
   final DateTime end;
@@ -36,6 +52,24 @@ class _ReallocationPickerScreenState extends ConsumerState<ReallocationPickerScr
   String? _selectedBus;
   String? _reason;
   bool _changeCost = false;
+  late final _fare = TextEditingController(text: widget.currentFare > 0 ? '${widget.currentFare}' : '');
+
+  @override
+  void dispose() {
+    _fare.dispose();
+    super.dispose();
+  }
+
+  int? get _fareValue => int.tryParse(_fare.text.replaceAll(RegExp(r'\D'), ''));
+
+  /// Null when fine (or the cost is not being changed).
+  String? get _fareError {
+    if (!_changeCost) return null;
+    final v = _fareValue;
+    if (v == null || v < 1) return 'Enter the new total fare in rupees.';
+    if (v < widget.amountPaid) return 'The fare cannot be less than the ${AppMoneyFormat.rupees(widget.amountPaid)} already paid.';
+    return null;
+  }
 
   static const _reasons = [
     'Selected bus at another location',
@@ -133,7 +167,13 @@ class _ReallocationPickerScreenState extends ConsumerState<ReallocationPickerScr
                   ),
                   if (_changeCost) ...[
                     const SizedBox(height: AppSpacing.md),
-                    const LabeledField(label: 'Revised total fare (₹)', keyboardType: TextInputType.number),
+                    LabeledField(
+                      label: 'Revised total fare (₹)',
+                      controller: _fare,
+                      keyboardType: TextInputType.number,
+                      errorText: _fare.text.isEmpty ? null : _fareError,
+                      onChanged: (_) => setState(() {}),
+                    ),
                   ],
                 ],
               ),
@@ -142,8 +182,12 @@ class _ReallocationPickerScreenState extends ConsumerState<ReallocationPickerScr
               padding: const EdgeInsets.fromLTRB(AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.xl),
               child: PrimaryButton(
                 label: 'Confirm reallocation',
-                onPressed: (_selectedBus != null && _reason != null)
-                    ? () => Navigator.of(context).pop(freeBuses.firstWhere((b) => b.regNumber == _selectedBus))
+                onPressed: (_selectedBus != null && _reason != null && _fareError == null)
+                    ? () => Navigator.of(context).pop(ReallocationChoice(
+                          bus: freeBuses.firstWhere((b) => b.regNumber == _selectedBus),
+                          reason: _reason!,
+                          revisedFare: _changeCost ? _fareValue : null,
+                        ))
                     : null,
               ),
             ),

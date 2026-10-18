@@ -12,6 +12,9 @@ import 'package:charter_booking_ui/features/customer/screens/rating_screen.dart'
 
 class _FailingRatings implements RatingRepository {
   @override
+  Stream<List<Rating>> watchAll() => Stream.value(const []);
+
+  @override
   Future<void> submit(Rating rating) => throw const BookingException('No internet connection. Check your connection and try again.');
 }
 

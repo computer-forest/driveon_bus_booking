@@ -2,10 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/app_info.dart';
+import 'core/diagnostics/error_reporting.dart';
 import 'data/firebase_overrides.dart';
 import 'data/providers.dart';
 import 'firebase_options.dart';
@@ -26,7 +29,13 @@ Future<void> main() async {
     return;
   }
 
-  if (useFirebase) await _initFirebase();
+  if (useFirebase) {
+    await _initFirebase();
+    // Crash reports: on for real builds only, so debug runs do not fill the dashboard.
+    final crashlytics = CrashlyticsReporter();
+    await crashlytics.enableCollection(!kDebugMode);
+    installErrorReporting(crashlytics);
+  }
 
   runApp(ProviderScope(
     overrides: [
@@ -45,6 +54,7 @@ Future<void> main() async {
               functions: CloudBackendFunctions(),
               store: ref.watch(secureStoreProvider),
               beforeSignOut: ref.read(pushServiceProvider).unregister,
+              onNotice: (message) => ref.read(authNoticeProvider.notifier).show(message),
             )),
       otpServiceProvider.overrideWith((ref) => useFakeOtp ? FakeOtpService() : Msg91OtpService(msg91)),
     ],
@@ -68,7 +78,7 @@ class CharterBookingApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
-      title: 'Charter Booking',
+      title: appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: ref.watch(routerProvider),

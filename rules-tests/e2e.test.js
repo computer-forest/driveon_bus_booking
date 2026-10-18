@@ -114,13 +114,18 @@ test("a customer cannot read the staff list; staff can, but cannot change it dir
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function auditEntries(expectCount) {
-  for (let i = 0; i < 40; i++) {
+/** Audit entries for one document, once at least [expectCount] have appeared. */
+async function auditEntries(expectCount, docId) {
+  const read = async () => {
     const snap = await getDocs(query(collection(db, "auditLog"), orderBy("at", "desc")));
-    if (snap.size >= expectCount) return snap.docs.map((d) => d.data());
+    return snap.docs.map((d) => d.data());
+  };
+  for (let i = 0; i < 40; i++) {
+    const entries = await read();
+    if (entries.filter((e) => e.docId === docId).length >= expectCount) return entries;
     await sleep(250);
   }
-  return (await getDocs(collection(db, "auditLog"))).docs.map((d) => d.data());
+  return read();
 }
 
 test("staff changes to master data are audited by the server, with the staff member's name", async () => {
@@ -138,7 +143,7 @@ test("staff changes to master data are audited by the server, with the staff mem
   await setDoc(doc(db, "vendors/ven-test"), vendor("1"));
   await setDoc(doc(db, "vendors/ven-test"), vendor("2")); // only the phone changed
 
-  const entries = await auditEntries(2);
+  const entries = await auditEntries(2, "ven-test");
   const mine = entries.filter((e) => e.docId === "ven-test");
   assert.equal(mine.length, 2, JSON.stringify(entries));
   assert.ok(mine.some((e) => e.action === "Vendor added" && e.actor === "Priya"));

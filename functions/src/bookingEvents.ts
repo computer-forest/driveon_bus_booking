@@ -86,9 +86,12 @@ async function forCustomer(before: Data | undefined, after: Data): Promise<Note 
     return null;
   }
   if (before.busId !== after.busId) {
+    const fareChanged = Number(before.totalFare) !== Number(after.totalFare) && Number(after.totalFare) > 0;
     return note({
       title: "Your bus has changed",
-      body: render(await templateText("tpl-realloc", DEFAULTS.realloc), vars(after)),
+      body:
+        render(await templateText("tpl-realloc", DEFAULTS.realloc), vars(after)) +
+        (fareChanged ? ` Your total fare is now ${rupees(Number(after.totalFare))}.` : ""),
       tone: "warning",
       kind: "reallocated",
     });

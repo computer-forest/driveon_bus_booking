@@ -165,6 +165,7 @@ final auditLogProvider = StreamProvider<List<AuditEntry>>(
     (ref) => ref.watch(auditRepositoryProvider).watchAll());
 final notificationsProvider = StreamProvider<List<AppNotification>>(
     (ref) => ref.watch(notificationRepositoryProvider).watchAll());
+final allRatingsProvider = StreamProvider<List<Rating>>((ref) => ref.watch(ratingRepositoryProvider).watchAll());
 final staffMembersProvider = StreamProvider<List<StaffMember>>((ref) => ref.watch(staffRepositoryProvider).watchAll());
 
 /// The Terms or Privacy text; null until staff have written it.

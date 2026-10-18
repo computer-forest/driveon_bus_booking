@@ -81,7 +81,7 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: CharterBookingApp()));
     await tester.pump();
 
-    expect(find.text('CharterBooking'), findsOneWidget);
+    expect(find.text('Charter Booking'), findsOneWidget);
     expect(find.text('Skip'), findsNothing);
 
     await tester.pump(const Duration(milliseconds: 1200));

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../app/routes.dart';
+import '../core/app_info.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_gradients.dart';
 import '../data/providers.dart';
@@ -54,7 +55,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               ),
               const SizedBox(height: 20),
               const Text(
-                'CharterBooking',
+                appName,
                 style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),

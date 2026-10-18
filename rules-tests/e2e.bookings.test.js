@@ -332,3 +332,45 @@ test("two customers cannot hold the same bus even when the holds arrive one afte
   }
   assert.equal(wins, 1);
 });
+
+test("reallocation keeps its reason, can revise the fare, refuses a fare below what was paid, and the customer is told", async () => {
+  await reset();
+  await put("buses/b1", bus("b1"));
+  await put("buses/b2", bus("b2", { driverName: "Ramesh Jadhav" }));
+  await put("buses/b3", bus("b3"));
+  const c = await client("9820077001");
+  const staff = await client("9820000001", "staff");
+  const hold = await c.call("createHold", { busId: "b1", startsAt: when(60, "10:00"), endsAt: when(60, "16:00"), route: "A → B" });
+  const act = (action, extra = {}) => staff.call("bookingAction", { bookingId: hold.bookingId, action, ...extra });
+  await act("confirmCost", { fare: 18000 });
+  await act("recordAdvance", { amount: 6000 });
+
+  await rejectsWith(act("reallocate", { newBusId: "b2", reason: "Mechanical issue", revisedFare: 5000 }), "failed-precondition", "The fare cannot be less than the ₹6000 already paid.");
+  await rejectsWith(act("reallocate", { newBusId: "b2", revisedFare: 12.5 }), "invalid-argument");
+  await rejectsWith(act("reallocate", { newBusId: "b2", revisedFare: 0 }), "invalid-argument");
+  assert.equal((await readDoc(`bookings/${hold.bookingId}`)).data().busId, "b1", "a refused change moves nothing");
+
+  await act("reallocate", { newBusId: "b2", reason: "Mechanical issue", revisedFare: 20000 });
+  const moved = (await readDoc(`bookings/${hold.bookingId}`)).data();
+  assert.equal(moved.busId, "b2");
+  assert.equal(moved.totalFare, 20000);
+  assert.equal(moved.reallocationReason, "Mechanical issue");
+  assert.equal(moved.reallocatedFrom, "REG-b1");
+  assert.ok(moved.reallocatedAt);
+
+  const audits = (await seed((db) => getDocs(collection(db, "auditLog")))).docs.map((d) => d.data()).filter((e) => e.action === "Booking moved to another bus");
+  assert.equal(audits.length, 1);
+  assert.match(audits[0].detail, /REG-b1 → REG-b2 · Mechanical issue · fare ₹18000 → ₹20000/);
+
+  const notes = await getDocs(query(collection(c.db, "notifications"), where("userId", "==", c.uid)));
+  const changed = notes.docs.map((d) => d.data()).find((n) => n.kind === "reallocated");
+  assert.ok(changed, "customer is told");
+  assert.match(changed.body, /Your total fare is now ₹20,000\./);
+
+  // a move with no reason or fare change still works, and leaves the fare alone
+  await act("reallocate", { newBusId: "b3" });
+  const again = (await readDoc(`bookings/${hold.bookingId}`)).data();
+  assert.equal(again.busId, "b3");
+  assert.equal(again.totalFare, 20000);
+  assert.equal(again.reallocationReason, "");
+});

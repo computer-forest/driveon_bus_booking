@@ -60,7 +60,9 @@ class FirebaseAuthRepository implements AuthRepository {
     required BackendFunctions functions,
     required SecureStore store,
     Future<void> Function()? beforeSignOut,
+    void Function(String message)? onNotice,
   })  : _beforeSignOut = beforeSignOut,
+        _onNotice = onNotice,
         _auth = auth,
         _firestore = firestore,
         _functions = functions,
@@ -74,11 +76,46 @@ class FirebaseAuthRepository implements AuthRepository {
   /// Runs while still signed in, e.g. to stop push notifications to this phone.
   final Future<void> Function()? _beforeSignOut;
 
+  /// Tells the person why they were signed out when it was not their own doing.
+  final void Function(String message)? _onNotice;
+
   /// Pushed after anything that changes the user without Firebase noticing
   /// (profile edits, finishing onboarding).
   final _refreshes = StreamController<AppUser?>.broadcast();
 
   DocumentReference<Map<String, dynamic>> _profile(String uid) => _firestore.doc('users/$uid');
+
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _staffWatch;
+  String? _watchedStaff;
+
+  /// While a staff member is signed in, watch their own entry on the staff
+  /// list. If it is switched off or removed, sign them out at once instead of
+  /// waiting for their sign-in token to expire. (Once they are off the list
+  /// the rules also refuse the read, which counts the same.)
+  void _trackStaff(AppUser? user) {
+    final wanted = user != null && user.isAdmin ? user.id : null;
+    if (wanted == _watchedStaff) return;
+    _staffWatch?.cancel();
+    _staffWatch = null;
+    _watchedStaff = wanted;
+    if (wanted == null) return;
+    final entry = _firestore.doc('staff/${wanted.substring('staff_'.length)}');
+    _staffWatch = entry.snapshots().listen(
+      (snap) {
+        if (!snap.exists || snap.data()?['active'] != true) _removed();
+      },
+      onError: (Object e) {
+        // Refused because they are no longer on the list. A dropped connection
+        // is not a reason to sign anyone out.
+        if (e is FirebaseException && e.code == 'permission-denied') _removed();
+      },
+    );
+  }
+
+  Future<void> _removed() async {
+    _onNotice?.call(AuthMessages.staffAccessOff);
+    await signOut();
+  }
 
   Future<void> _refresh() async => _refreshes.add(await _toUser(_auth.currentUser));
 
@@ -126,8 +163,14 @@ class FirebaseAuthRepository implements AuthRepository {
     StreamSubscription<AppUser?>? fromRefresh;
     controller = StreamController<AppUser?>(
       onListen: () {
-        fromFirebase = _auth.authStateChanges().asyncMap(_toUser).listen(controller.add, onError: controller.addError);
-        fromRefresh = _refreshes.stream.listen(controller.add);
+        fromFirebase = _auth.authStateChanges().asyncMap(_toUser).listen((u) {
+          _trackStaff(u);
+          controller.add(u);
+        }, onError: controller.addError);
+        fromRefresh = _refreshes.stream.listen((u) {
+          _trackStaff(u);
+          controller.add(u);
+        });
       },
       onCancel: () {
         fromFirebase?.cancel();
@@ -208,6 +251,7 @@ class FirebaseAuthRepository implements AuthRepository {
       await _beforeSignOut?.call();
     } catch (_) {}
     await _forgetDevice();
+    _trackStaff(null);
     await _auth.signOut();
     _refreshes.add(null);
   }

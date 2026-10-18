@@ -10,6 +10,7 @@ class AuthMessages {
   static const serverVerification = "We couldn't verify your number. Please try again.";
   static const sessionNotSaved = "You're verified, but we couldn't save your sign-in on this phone. Request a new code and try again.";
   static const serverProblem = 'Your code was right, but sign-in hit a problem on our side. Please try again in a minute.';
+  static const staffAccessOff = 'Your staff access has been switched off. Ask a colleague with staff access if this is a mistake.';
   static const notStaff = 'This number is not registered for staff access.';
   static const biometricNotEnrolled = 'Set up fingerprint or Face ID in your phone settings first.';
   static const biometricLocked = 'Biometrics are locked. Log in with OTP.';

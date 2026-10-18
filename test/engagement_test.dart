@@ -43,6 +43,15 @@ class FakeTokenSource implements PushTokenSource {
 
   @override
   Future<void> deleteToken() async => deleted = true;
+
+  final taps = StreamController<PushTap>.broadcast();
+  PushTap? launch;
+
+  @override
+  Stream<PushTap> get onTapped => taps.stream;
+
+  @override
+  Future<PushTap?> initialTap() async => launch;
 }
 
 // ------------------------------------------------------------- widgets --

@@ -10,8 +10,14 @@ service cloud.firestore {
     }
 
     // Role is a server-set custom claim; the client cannot grant itself one.
+    // The claim alone is not enough: a token keeps saying "admin" for up to an
+    // hour after someone is removed, so the live staff list is checked too
+    // (account staff_91XXXXXXXXXX needs an active staff/91XXXXXXXXXX entry).
     function isAdmin() {
-      return signedIn() && request.auth.token.role == 'admin';
+      return signedIn()
+        && request.auth.token.role == 'admin'
+        && request.auth.uid.matches('staff_91[0-9]{10}')
+        && get(/databases/$(database)/documents/staff/$(request.auth.uid[6:])).data.active == true;
     }
 
     function validText(value, maxLength) {
@@ -218,6 +224,10 @@ service cloud.firestore {
         && ownsBooking(request.resource.data.bookingId)
         && request.resource.data.overall is int
         && request.resource.data.overall >= 1 && request.resource.data.overall <= 5
+        && request.resource.data.bus is int
+        && request.resource.data.bus >= 1 && request.resource.data.bus <= 5
+        && request.resource.data.driver is int
+        && request.resource.data.driver >= 1 && request.resource.data.driver <= 5
         && validText(request.resource.data.get('feedback', ''), 1000);
       allow update, delete: if false;
     }

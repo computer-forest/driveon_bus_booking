@@ -203,15 +203,21 @@ class MockBookingRepository implements BookingRepository {
   }
 
   @override
-  Future<void> reallocate(String bookingId, String newBusId) async {
+  Future<void> reallocate(String bookingId, String newBusId, {String reason = '', int? revisedFare}) async {
     final b = _get(bookingId, _editable, 'move');
+    if (revisedFare != null) {
+      if (revisedFare < 1) throw const BookingException('The revised fare must be a whole number of rupees.');
+      if (revisedFare < b.amountPaid) {
+        throw BookingException('The fare cannot be less than the ₹${b.amountPaid} already paid.');
+      }
+    }
     final bus = _b.buses.items.where((e) => e.id == newBusId).firstOrNull;
     if (bus == null) throw const BookingException('That bus does not exist.');
     final others = _b.bookings.items.where((e) => e.id != b.id);
     if (!isBusFree(bus, b.start, b.end, bookings: others, blackouts: _b.blackouts.items)) {
       throw const BusUnavailableException();
     }
-    _put(b.copyWith(busId: bus.id, busReg: bus.regNumber));
+    _put(b.copyWith(busId: bus.id, busReg: bus.regNumber, totalFare: revisedFare));
   }
 
   @override
@@ -463,6 +469,10 @@ class MockRatingRepository implements RatingRepository {
 
   @override
   Future<void> submit(Rating rating) async => _b.ratings.add(rating);
+
+  @override
+  Stream<List<Rating>> watchAll() =>
+      _b.ratings.watch().map((all) => [...all]..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
 }
 
 class MockCancellationRepository implements CancellationRepository {

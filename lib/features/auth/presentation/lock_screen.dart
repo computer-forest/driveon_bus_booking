@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/app_info.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_gradients.dart';
 import '../../../core/theme/app_radius.dart';
@@ -33,7 +34,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   Future<void> _unlock() async {
     if (_busy) return;
     setState(() => _busy = true);
-    final outcome = await ref.read(biometricSettingsProvider).prompt('Unlock CharterBooking');
+    final outcome = await ref.read(biometricSettingsProvider).prompt('Unlock $appName');
     if (!mounted) return;
     switch (outcome) {
       case BiometricOutcome.success:
@@ -72,7 +73,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                 child: const Icon(Icons.directions_bus_filled_rounded, color: Colors.white, size: 40),
               ),
               const SizedBox(height: AppSpacing.lg),
-              Text('CharterBooking', style: textTheme.displaySmall?.copyWith(fontSize: 24)),
+              Text(appName, style: textTheme.displaySmall?.copyWith(fontSize: 24)),
               const SizedBox(height: AppSpacing.xxl),
               const Icon(Icons.fingerprint_rounded, size: 56, color: AppColors.primary),
               const SizedBox(height: AppSpacing.md),

@@ -94,14 +94,23 @@ class _AdminBookingDetailScreenState extends ConsumerState<AdminBookingDetailScr
 
   Future<void> _reallocate() async {
     final b = _current;
-    final newBus = await Navigator.of(context).push<BusRecord>(
+    final choice = await Navigator.of(context).push<ReallocationChoice>(
       MaterialPageRoute(
-        builder: (_) => ReallocationPickerScreen(currentBusId: b.busId, start: b.start, end: b.end),
+        builder: (_) => ReallocationPickerScreen(
+          currentBusId: b.busId,
+          start: b.start,
+          end: b.end,
+          currentFare: b.totalFare,
+          amountPaid: b.amountPaid,
+        ),
       ),
     );
-    if (newBus == null || !mounted) return;
-    final moved = await guardedWrite(context, () => _bookings.reallocate(b.id, newBus.id));
-    if (moved) _note('Moved to ${newBus.regNumber}.');
+    if (choice == null || !mounted) return;
+    final moved = await guardedWrite(
+      context,
+      () => _bookings.reallocate(b.id, choice.bus.id, reason: choice.reason, revisedFare: choice.revisedFare),
+    );
+    if (moved) _note('Moved to ${choice.bus.regNumber}.');
   }
 
   Future<void> _cancel() async {

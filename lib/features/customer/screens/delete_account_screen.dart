@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/app_info.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -66,7 +67,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
               _point('Your name, email and saved locations are permanently erased.'),
               _point('Past bookings are anonymised — trip records remain for operational history.'),
               _point('Financial records are retained as required for accounting.'),
-              _point("You'll need to register again with a new OTP to use CharterBooking in future."),
+              _point("You'll need to register again with a new OTP to use $appName in future."),
               const Spacer(),
               InkWell(
                 onTap: () => setState(() => _understood = !_understood),

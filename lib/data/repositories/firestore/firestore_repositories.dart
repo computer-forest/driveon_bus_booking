@@ -297,8 +297,12 @@ class FirestoreBookingRepository extends FirestoreBase implements BookingReposit
       _action(bookingId, 'recordBalance', {'amount': amount, 'mode': mode, 'reference': reference});
 
   @override
-  Future<void> reallocate(String bookingId, String newBusId) =>
-      _action(bookingId, 'reallocate', {'newBusId': newBusId});
+  Future<void> reallocate(String bookingId, String newBusId, {String reason = '', int? revisedFare}) =>
+      _action(bookingId, 'reallocate', {
+        'newBusId': newBusId,
+        'reason': reason,
+        if (revisedFare != null) 'revisedFare': revisedFare,
+      });
 
   @override
   Future<void> cancel(
@@ -362,6 +366,11 @@ class FirestorePaymentRepository extends FirestoreBase implements PaymentReposit
 
 class FirestoreRatingRepository extends FirestoreBase implements RatingRepository {
   FirestoreRatingRepository(super.db, super.currentUid);
+
+  /// Staff only (the rules refuse everyone else).
+  @override
+  Stream<List<Rating>> watchAll() =>
+      list(db.collection('ratings').orderBy('createdAt', descending: true).limit(500), Codec.ratingFromMap);
 
   @override
   Future<void> submit(Rating rating) => db.doc('ratings/${rating.id}').set({

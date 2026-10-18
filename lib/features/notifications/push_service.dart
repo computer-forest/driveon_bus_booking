@@ -7,12 +7,37 @@ import 'package:flutter/foundation.dart';
 
 /// Where this phone's push token comes from. Behind an interface so the
 /// registration logic can be tested without a device.
+/// A tapped push notification. [bookingId] is the booking it was about, if any.
+class PushTap {
+  const PushTap({this.bookingId});
+
+  final String? bookingId;
+
+  /// From the data the server attaches to every push.
+  factory PushTap.fromData(Map<String, dynamic> data) {
+    final id = data['bookingId'];
+    return PushTap(bookingId: id is String && id.isNotEmpty ? id : null);
+  }
+
+  @override
+  bool operator ==(Object other) => other is PushTap && other.bookingId == bookingId;
+
+  @override
+  int get hashCode => bookingId.hashCode;
+}
+
 abstract class PushTokenSource {
   /// Asks the person for permission to show notifications; false if refused.
   Future<bool> requestPermission();
   Future<String?> token();
   Stream<String> get onRefresh;
   Future<void> deleteToken();
+
+  /// Notifications tapped while the app was in the background.
+  Stream<PushTap> get onTapped;
+
+  /// The notification whose tap started the app from closed, if any.
+  Future<PushTap?> initialTap();
 }
 
 class FirebaseTokenSource implements PushTokenSource {
@@ -34,6 +59,15 @@ class FirebaseTokenSource implements PushTokenSource {
 
   @override
   Future<void> deleteToken() => _m.deleteToken();
+
+  @override
+  Stream<PushTap> get onTapped => FirebaseMessaging.onMessageOpenedApp.map((m) => PushTap.fromData(m.data));
+
+  @override
+  Future<PushTap?> initialTap() async {
+    final m = await _m.getInitialMessage();
+    return m == null ? null : PushTap.fromData(m.data);
+  }
 }
 
 /// Registers this phone to receive the signed-in person's push notifications
@@ -43,6 +77,12 @@ class FirebaseTokenSource implements PushTokenSource {
 abstract class PushService {
   Future<void> register(String uid);
   Future<void> unregister();
+
+  /// Notifications the person tapped, so the app can open what they were about.
+  Stream<PushTap> get taps;
+
+  /// The tap that launched the app from closed. Returned once.
+  Future<PushTap?> launchTap();
 }
 
 class NoopPushService implements PushService {
@@ -53,6 +93,12 @@ class NoopPushService implements PushService {
 
   @override
   Future<void> unregister() async {}
+
+  @override
+  Stream<PushTap> get taps => const Stream.empty();
+
+  @override
+  Future<PushTap?> launchTap() async => null;
 }
 
 class DevicePushService implements PushService {
@@ -96,6 +142,22 @@ class DevicePushService implements PushService {
       });
     } catch (e) {
       debugPrint('Push registration skipped: $e');
+    }
+  }
+
+  bool _launchTapTaken = false;
+
+  @override
+  Stream<PushTap> get taps => _source.onTapped;
+
+  @override
+  Future<PushTap?> launchTap() async {
+    if (_launchTapTaken) return null;
+    _launchTapTaken = true;
+    try {
+      return await _source.initialTap();
+    } catch (_) {
+      return null;
     }
   }
 
