@@ -215,7 +215,9 @@ test("staff cannot hold a bus; customers cannot run staff actions", async () => 
 
 test("the lifecycle runs in order, and every skipped step is refused", async () => {
   await reset();
-  await put("buses/b1", bus("b1"));
+  await put("buses/b1", bus("b1", { driverId: "drv-1" }));
+  await put("drivers/drv-1", { name: "Driver", phone: "+91 90000 11122", vendorId: "ven-ok", updatedBy: "system:seed" });
+  await put("busAdmin/b1", { gpsLink: "https://track.example.com/b1", updatedBy: "system:seed" });
   const c = await client("9820011010");
   const staff = await client("9820000001", "staff");
   const hold = await c.call("createHold", { busId: "b1", startsAt: when(31, "10:00"), endsAt: when(31, "16:00"), route: "A → B" });
@@ -236,6 +238,10 @@ test("the lifecycle runs in order, and every skipped step is refused", async () 
   await act("recordAdvance", { amount: 4500, mode: "UPI", reference: "UPI123" });
   assert.equal(await stage(), "confirmed");
   assert.equal((await readDoc(`bookings/${hold.bookingId}`)).data().amountPaid, 4500);
+  // Confirming shares the driver's number and the tracking link with the customer.
+  const shared = (await getDoc(doc(c.db, `bookings/${hold.bookingId}`))).data();
+  assert.equal(shared.driverPhone, "+91 90000 11122");
+  assert.equal(shared.gpsLink, "https://track.example.com/b1");
 
   await rejectsWith(act("recordBalance", { amount: 1 }), "failed-precondition");
   await act("startTrip");
@@ -362,8 +368,13 @@ test("reallocation keeps its reason, can revise the fare, refuses a fare below w
   assert.equal(audits.length, 1);
   assert.match(audits[0].detail, /REG-b1 → REG-b2 · Mechanical issue · fare ₹18000 → ₹20000/);
 
-  const notes = await getDocs(query(collection(c.db, "notifications"), where("userId", "==", c.uid)));
-  const changed = notes.docs.map((d) => d.data()).find((n) => n.kind === "reallocated");
+  // The notification is written by a trigger a moment after the change.
+  let changed;
+  for (let i = 0; i < 40 && !changed; i++) {
+    const notes = await getDocs(query(collection(c.db, "notifications"), where("userId", "==", c.uid)));
+    changed = notes.docs.map((d) => d.data()).find((n) => n.kind === "reallocated");
+    if (!changed) await new Promise((r) => setTimeout(r, 250));
+  }
   assert.ok(changed, "customer is told");
   assert.match(changed.body, /Your total fare is now ₹20,000\./);
 

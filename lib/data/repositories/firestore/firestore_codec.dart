@@ -332,6 +332,8 @@ class Codec {
         createdAt: m['createdAt'] as DateTime?,
         confirmedAt: m['confirmedAt'] as DateTime?,
         refundedAmount: (m['refundedAmount'] as num?)?.toInt() ?? 0,
+        driverPhone: _str(m['driverPhone']),
+        gpsLink: _str(m['gpsLink']),
       );
 
   static Payment paymentFromMap(String id, Map<String, dynamic> m) => Payment(

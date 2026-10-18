@@ -265,6 +265,23 @@ type Action =
 const EDITABLE = ["requested", "costConfirmed", "confirmed"];
 
 /**
+ * What the customer needs on the day: the driver's number and the bus's
+ * tracking link. Both live in staff-only documents, so the server copies them
+ * onto the booking when it is confirmed (or its bus changes). Must be called
+ * before the transaction's first write.
+ */
+async function tripContact(tx: FirebaseFirestore.Transaction, busData: FirebaseFirestore.DocumentData, busId: string) {
+  const driverId = String(busData.driverId ?? "");
+  const [driver, admin] = await Promise.all([
+    driverId ? tx.get(db().doc(`drivers/${driverId}`)) : Promise.resolve(null),
+    tx.get(db().doc(`busAdmin/${busId}`)),
+  ]);
+  const phone = String(driver?.data()?.phone ?? "").trim();
+  const link = String(admin.data()?.gpsLink ?? "").trim();
+  return { driverPhone: phone || null, gpsLink: /^https:\/\//i.test(link) ? link : null };
+}
+
+/**
  * Staff moves a booking through its lifecycle. The server checks that every
  * step is legal from the booking's current stage, so a screen (or anyone
  * with a staff token) cannot skip a stage or confirm a lapsed hold.
@@ -331,8 +348,11 @@ export const bookingAction = onCall(async (request) => {
         need(["requested", "costConfirmed"], "confirm");
         if (!(Number(b.totalFare) > 0)) throw new HttpsError("failed-precondition", "Set the cost first.");
         const amount = money(request.data?.amount, "The advance", 0);
+        const busDoc = await tx.get(db().doc(`buses/${b.busId}`));
+        const contact = await tripContact(tx, busDoc.data() ?? {}, String(b.busId));
         if (amount > 0) addPayment("advance", amount);
         tx.update(ref, {
+          ...contact,
           amountPaid: Number(b.amountPaid) + amount,
           stage: "confirmed",
           holdExpiresAt: null,
@@ -441,11 +461,14 @@ export const bookingAction = onCall(async (request) => {
             `The fare cannot be less than the \u20B9${b.amountPaid} already paid.`,
           );
         }
+        const contactNow = ["confirmed", "inTrip"].includes(stage) ? await tripContact(tx, busSnap.data()!, newBusId) : null;
         tx.set(lockRef, { n: FieldValue.increment(1), at: FieldValue.serverTimestamp() });
         tx.update(ref, {
           busId: newBusId,
           busReg: String(busSnap.data()!.regNumber ?? ""),
           driverName: String(busSnap.data()!.driverName ?? ""),
+          // A booking that is already confirmed keeps its contact details current.
+          ...(contactNow ?? {}),
           capacity: Number(busSnap.data()!.capacity ?? b.capacity),
           reallocationReason: reason,
           reallocatedFrom: String(b.busReg ?? ""),

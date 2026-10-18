@@ -186,7 +186,14 @@ class MockBookingRepository implements BookingRepository {
     final b = _get(bookingId, [BookingStage.requested, BookingStage.costConfirmed], 'confirm');
     if (b.totalFare <= 0) throw const BookingException('Set the cost first.');
     _pay(b, PaymentKind.advance, amount, mode, reference);
-    _put(b.copyWith(amountPaid: b.amountPaid + amount, stage: BookingStage.confirmed));
+    final bus = _b.buses.items.where((e) => e.id == b.busId).firstOrNull;
+    final driver = _b.drivers.items.where((d) => d.id == bus?.driverId).firstOrNull;
+    _put(b.copyWith(
+      amountPaid: b.amountPaid + amount,
+      stage: BookingStage.confirmed,
+      driverPhone: driver?.phone,
+      gpsLink: bus?.gpsLink,
+    ));
   }
 
   @override

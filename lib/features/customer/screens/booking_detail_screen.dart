@@ -13,12 +13,19 @@ import '../../../data/ids.dart';
 import '../../../data/models.dart';
 import '../../../data/providers.dart';
 import '../widgets/customer_bottom_nav.dart';
+import '../../../core/utils/contact_launcher.dart';
 import '../widgets/driver_card.dart';
 import 'home_search_screen.dart';
 import 'my_bookings_screen.dart';
 import 'notifications_screen.dart';
 import 'profile_screen.dart';
 import 'rating_screen.dart';
+
+/// Only a web link is ever opened.
+Uri? _httpsUri(String? raw) {
+  final u = raw == null ? null : Uri.tryParse(raw.trim());
+  return u != null && u.scheme == 'https' && u.host.isNotEmpty ? u : null;
+}
 
 class BookingDetailScreen extends ConsumerWidget {
   const BookingDetailScreen({super.key, required this.booking});
@@ -27,7 +34,13 @@ class BookingDetailScreen extends ConsumerWidget {
   /// backend replaces it as soon as one is available.
   final Booking booking;
 
-  static const _steps = ['Requested', 'Cost set', 'Confirmed', 'In trip', 'Done'];
+  static const _steps = [
+    'Requested',
+    'Cost set',
+    'Confirmed',
+    'In trip',
+    'Done'
+  ];
 
   static int _stepFor(BookingStage stage) {
     switch (stage) {
@@ -55,15 +68,19 @@ class BookingDetailScreen extends ConsumerWidget {
           (route) => false,
         );
       case 1:
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const MyBookingsScreen()));
+        Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const MyBookingsScreen()));
       case 2:
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+        Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const NotificationsScreen()));
       case 3:
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
+        Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
     }
   }
 
-  Future<void> _requestCancellation(BuildContext context, WidgetRef ref, Booking booking) async {
+  Future<void> _requestCancellation(
+      BuildContext context, WidgetRef ref, Booking booking) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -72,8 +89,12 @@ class BookingDetailScreen extends ConsumerWidget {
           "This sends a cancellation request to our team — the booking stays active until Admin processes it.",
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Back')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Request')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Back')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Request')),
         ],
       ),
     );
@@ -92,7 +113,9 @@ class BookingDetailScreen extends ConsumerWidget {
       );
       if (!saved || !context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cancellation requested — our team will confirm shortly.')),
+        const SnackBar(
+            content: Text(
+                'Cancellation requested — our team will confirm shortly.')),
       );
     }
   }
@@ -100,22 +123,31 @@ class BookingDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
-    final live = ref.watch(bookingsProvider).items.where((b) => b.id == booking.id);
+    final live =
+        ref.watch(bookingsProvider).items.where((b) => b.id == booking.id);
     final current = live.isEmpty ? booking : live.first;
-    final bus = ref.watch(busesProvider).items.where((b) => b.id == current.busId).firstOrNull;
-    // Driver records (with phone numbers) are staff-only. A customer sees the
-    // driver's name from the bus; the number is added to the booking itself
-    // when staff confirm it (Stage 4/5).
-    final staffDriver = ref
-        .watch(driversProvider)
+    final bus = ref
+        .watch(busesProvider)
         .items
-        .where((d) => d.id == bus?.driverId)
+        .where((b) => b.id == current.busId)
         .firstOrNull;
-    final driver = bus == null || bus.driverId == null
+    // Driver records are staff-only, so the server copies the driver's number
+    // and the tracking link onto the booking when staff confirm it.
+    final live2 = current.stage == BookingStage.confirmed ||
+        current.stage == BookingStage.inTrip;
+    final driver = !live2 || bus == null || bus.driverId == null
         ? null
-        : DriverInfo(name: staffDriver?.name ?? bus.driverName, phone: staffDriver?.phone ?? '', busNumber: bus.regNumber);
+        : DriverInfo(
+            name: bus.driverName,
+            phone: current.driverPhone ?? '',
+            busNumber: bus.regNumber);
+    final gpsUri = live2 ? _httpsUri(current.gpsLink) : null;
     final payments = ref.watch(paymentsForBookingProvider(current.id)).items;
-    final requests = ref.watch(cancellationsProvider).items.where((r) => r.bookingId == current.id).toList()
+    final requests = ref
+        .watch(cancellationsProvider)
+        .items
+        .where((r) => r.bookingId == current.id)
+        .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final latest = requests.firstOrNull;
     final pending = latest?.status == CancellationStatus.pending;
@@ -127,7 +159,8 @@ class BookingDetailScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Booking detail')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.xxl),
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.xxl),
           children: [
             AppCard(
               child: Column(
@@ -142,18 +175,22 @@ class BookingDetailScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md, vertical: 6),
                     decoration: BoxDecoration(
                       color: AppColors.primaryTint,
                       borderRadius: AppRadius.tagRadius,
                     ),
                     child: Text(
                       'BOOKING REF · ${current.reference}',
-                      style: textTheme.labelSmall?.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700),
+                      style: textTheme.labelSmall?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  StatusStepper(steps: _steps, currentIndex: _stepFor(current.stage)),
+                  StatusStepper(
+                      steps: _steps, currentIndex: _stepFor(current.stage)),
                 ],
               ),
             ),
@@ -161,11 +198,20 @@ class BookingDetailScreen extends ConsumerWidget {
             const SectionLabel('Your bus and driver'),
             AppCard(
               child: driver == null
-                  ? Text('Your driver will be shared once the booking is confirmed.', style: textTheme.bodyMedium)
+                  ? Text(
+                      'Your driver and bus tracking link are shared once the booking is confirmed.',
+                      style: textTheme.bodyMedium)
                   : DriverCard(driver: driver),
             ),
             const SizedBox(height: AppSpacing.md),
-            SecondaryButton(label: 'Open GPS link', icon: Icons.location_on_outlined, onPressed: () {}),
+            if (gpsUri != null)
+              SecondaryButton(
+                label: 'Track the bus',
+                icon: Icons.location_on_outlined,
+                onPressed: () => openOrExplain(
+                    context, ref.read(urlOpenerProvider), gpsUri,
+                    what: 'the tracking link', number: ''),
+              ),
             const SizedBox(height: AppSpacing.xxl),
             const SectionLabel('Payment'),
             AppCard(
@@ -184,7 +230,8 @@ class BookingDetailScreen extends ConsumerWidget {
                               if (entry.note != null)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 2),
-                                  child: Text(entry.note!, style: textTheme.labelSmall),
+                                  child: Text(entry.note!,
+                                      style: textTheme.labelSmall),
                                 ),
                             ],
                           ),
@@ -193,7 +240,9 @@ class BookingDetailScreen extends ConsumerWidget {
                         Text(
                           entry.amount,
                           style: textTheme.titleSmall?.copyWith(
-                            color: entry == ledger.last ? AppColors.textPrimary : AppColors.textSecondary,
+                            color: entry == ledger.last
+                                ? AppColors.textPrimary
+                                : AppColors.textSecondary,
                           ),
                         ),
                       ],
@@ -204,20 +253,24 @@ class BookingDetailScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.xxl),
-            if (current.stage == BookingStage.completed || current.stage == BookingStage.settled)
+            if (current.stage == BookingStage.completed ||
+                current.stage == BookingStage.settled)
               SecondaryButton(
                 label: 'Rate this trip',
                 icon: Icons.star_outline_rounded,
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RatingScreen(booking: current))),
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => RatingScreen(booking: current))),
               ),
-            if (current.stage == BookingStage.cancelled || current.stage == BookingStage.expired)
+            if (current.stage == BookingStage.cancelled ||
+                current.stage == BookingStage.expired)
               Text(
                 current.stage == BookingStage.cancelled
                     ? 'This booking was cancelled.'
                     : 'This hold ran out and the bus was released.',
                 style: textTheme.bodyMedium,
               ),
-            if (latest?.status == CancellationStatus.declined && cancellable) ...[
+            if (latest?.status == CancellationStatus.declined &&
+                cancellable) ...[
               Text(
                 'Your cancellation request was declined.${latest!.decisionNote.isEmpty ? '' : ' ${latest.decisionNote}'}',
                 style: textTheme.bodyMedium,
@@ -228,10 +281,17 @@ class BookingDetailScreen extends ConsumerWidget {
               const SizedBox(height: AppSpacing.md),
               Center(
                 child: TextButton(
-                  onPressed: pending ? null : () => _requestCancellation(context, ref, current),
+                  onPressed: pending
+                      ? null
+                      : () => _requestCancellation(context, ref, current),
                   child: Text(
-                    pending ? 'Cancellation requested — awaiting our team' : 'Request cancellation',
-                    style: textTheme.labelLarge?.copyWith(color: pending ? AppColors.textTertiary : AppColors.urgent),
+                    pending
+                        ? 'Cancellation requested — awaiting our team'
+                        : 'Request cancellation',
+                    style: textTheme.labelLarge?.copyWith(
+                        color: pending
+                            ? AppColors.textTertiary
+                            : AppColors.urgent),
                   ),
                 ),
               ),
@@ -239,7 +299,8 @@ class BookingDetailScreen extends ConsumerWidget {
           ],
         ),
       ),
-      bottomNavigationBar: CustomerBottomNav(currentIndex: 1, onTap: (i) => _onNavTap(context, i)),
+      bottomNavigationBar: CustomerBottomNav(
+          currentIndex: 1, onTap: (i) => _onNavTap(context, i)),
     );
   }
 
@@ -248,7 +309,9 @@ class BookingDetailScreen extends ConsumerWidget {
   /// reading the booking's own totals.
   static List<LedgerEntry> _ledgerFor(Booking booking, List<Payment> payments) {
     return [
-      LedgerEntry(label: 'Total fare', amount: AppMoneyFormat.rupees(booking.totalFare)),
+      LedgerEntry(
+          label: 'Total fare',
+          amount: AppMoneyFormat.rupees(booking.totalFare)),
       for (final p in payments)
         LedgerEntry(
           label: switch (p.kind) {
@@ -257,9 +320,12 @@ class BookingDetailScreen extends ConsumerWidget {
             PaymentKind.refund => 'Refund',
           },
           amount: AppMoneyFormat.rupees(p.amount),
-          note: 'Recorded by ${p.recordedBy} · ${AppDateFormat.dayMonth(p.receivedOn)}',
+          note:
+              'Recorded by ${p.recordedBy} · ${AppDateFormat.dayMonth(p.receivedOn)}',
         ),
-      LedgerEntry(label: 'Balance due', amount: AppMoneyFormat.rupees(booking.balanceDue)),
+      LedgerEntry(
+          label: 'Balance due',
+          amount: AppMoneyFormat.rupees(booking.balanceDue)),
     ];
   }
 }

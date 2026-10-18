@@ -168,6 +168,8 @@ class Booking {
     this.createdAt,
     this.confirmedAt,
     this.refundedAmount = 0,
+    this.driverPhone,
+    this.gpsLink,
   });
 
   final String id;
@@ -198,6 +200,11 @@ class Booking {
   final DateTime? createdAt;
   final DateTime? confirmedAt;
 
+  /// The driver's number and the bus's tracking link, copied onto the booking
+  /// by the server when staff confirm it. Null until then.
+  final String? driverPhone;
+  final String? gpsLink;
+
   /// Money paid back after a cancellation. [amountPaid] is net of it.
   final int refundedAmount;
 
@@ -223,6 +230,8 @@ class Booking {
     int? totalFare,
     int? amountPaid,
     int? refundedAmount,
+    String? driverPhone,
+    String? gpsLink,
   }) =>
       Booking(
         id: id,
@@ -244,6 +253,8 @@ class Booking {
         createdAt: createdAt,
         confirmedAt: confirmedAt,
         refundedAmount: refundedAmount ?? this.refundedAmount,
+        driverPhone: driverPhone ?? this.driverPhone,
+        gpsLink: gpsLink ?? this.gpsLink,
       );
 }
 

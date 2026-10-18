@@ -56,5 +56,7 @@ Future<void> openOrExplain(
     return;
   }
   if (await opener.open(uri)) return;
-  messenger.showSnackBar(SnackBar(content: Text("Couldn't open $what on this phone. The number is $number.")));
+  messenger.showSnackBar(SnackBar(
+    content: Text("Couldn't open $what on this phone.${number.isEmpty ? '' : ' The number is $number.'}"),
+  ));
 }
