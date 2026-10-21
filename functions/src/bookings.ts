@@ -514,7 +514,10 @@ export async function releaseLapsedHolds(now = Timestamp.now()): Promise<number>
   return lapsed.size;
 }
 
-export const expireHolds = onSchedule({ schedule: "every 1 minutes", region: "asia-south1" }, async () => {
+// Every 5 minutes, not every minute: a lapsed hold already stops blocking its
+// bus the moment it lapses (see occupiesBus), so this sweep only tidies the
+// stage and sends the warnings. Five times fewer runs, same behaviour.
+export const expireHolds = onSchedule({ schedule: "every 5 minutes", region: "asia-south1" }, async () => {
   await warnExpiringHolds();
   await releaseLapsedHolds();
 });

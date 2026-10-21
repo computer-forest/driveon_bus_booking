@@ -155,7 +155,9 @@ export const onCancellationDecided = onDocumentUpdated({ document: "cancellation
   });
 });
 
-const WARN_MINUTES = 5;
+// Wider than the sweep interval (every 5 minutes) so every hold is warned
+// once, 5 to 10 minutes before it runs out.
+const WARN_MINUTES = 10;
 
 /**
  * Warns staff, and the customer, that a hold is about to run out. Each hold
