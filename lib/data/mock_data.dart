@@ -628,7 +628,7 @@ class MockData {
       id: 'tpl-hold',
       name: 'Hold about to expire',
       channel: 'Push (Admin)',
-      trigger: '5 to 10 minutes before hold expiry',
+      trigger: 'Before a hold expires',
       preview: '{reference} hold expires in {minutes} minutes.',
     ),
   ];
