@@ -3,6 +3,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { interactive } from "./options";
 
 // Set with:  firebase functions:secrets:set MSG91_AUTHKEY
 // The Authkey exists only here. It is never sent to, or built into, the app.
@@ -38,7 +39,7 @@ function verifiedNumber(body: Record<string, unknown>): string | null {
  * Staff and customers are separate accounts (`staff_...` vs `cust_...`), so a
  * staff number signing in as a customer never gets the admin role.
  */
-export const verifyMsg91Token = onCall({ secrets: [msg91Authkey] }, async (request) => {
+export const verifyMsg91Token = onCall({ ...interactive, secrets: [msg91Authkey] }, async (request) => {
   const accessToken = request.data?.accessToken;
   if (typeof accessToken !== "string" || accessToken.length === 0) {
     throw new HttpsError("invalid-argument", "accessToken is required.");

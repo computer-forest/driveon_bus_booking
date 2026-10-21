@@ -4,6 +4,7 @@ import { logger } from "firebase-functions/v2";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 
 import { requireActiveStaff } from "./staffGuard";
+import { interactive } from "./options";
 
 /**
  * Staff manage who else has staff access (the `staff` allow-list that
@@ -40,7 +41,7 @@ function cleanName(raw: unknown): string {
   return typeof raw === "string" ? raw.trim().replace(/\s+/g, " ").slice(0, 80) : "";
 }
 
-export const manageStaff = onCall(async (request) => {
+export const manageStaff = onCall(interactive, async (request) => {
   const actorUid = await requireActiveStaff(request);
   const action = request.data?.action;
   const phone = normalizePhone(request.data?.phone);

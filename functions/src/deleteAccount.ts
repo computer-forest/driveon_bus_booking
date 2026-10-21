@@ -2,6 +2,7 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { logger } from "firebase-functions/v2";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { interactive } from "./options";
 
 /** Stages from which a booking will not change again. */
 const FINISHED = new Set(["settled", "expired", "cancelled"]);
@@ -20,7 +21,7 @@ const FINISHED = new Set(["settled", "expired", "cancelled"]);
  *
  * Staff accounts cannot be removed this way.
  */
-export const deleteAccount = onCall(async (request) => {
+export const deleteAccount = onCall(interactive, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Sign in first.");
   if (request.auth?.token.role === "admin") {

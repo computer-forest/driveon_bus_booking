@@ -7,6 +7,7 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { Blackout, Bus, DayWindow, Occupied, dayStart, isBusFree, occupiesBus, parseIst } from "./availability";
 import { warnExpiringHolds } from "./bookingEvents";
 import { requireActiveStaff } from "./staffGuard";
+import { interactive } from "./options";
 
 const db = (): Firestore => getFirestore();
 
@@ -116,7 +117,7 @@ function parseTrip(request: CallableRequest): { start: number; end: number } {
  *   in:  { startsAt, endsAt: "YYYY-MM-DDTHH:mm" (India time), capacity?: int }
  *   out: { busIds: string[] }
  */
-export const searchBuses = onCall(async (request) => {
+export const searchBuses = onCall(interactive, async (request) => {
   const uid = requireUid(request);
   const { start, end } = parseTrip(request);
   const capacity = request.data?.capacity;
@@ -164,7 +165,7 @@ export const searchBuses = onCall(async (request) => {
  *   in:  { busId, startsAt, endsAt, route, pickupLandmark? }
  *   out: { bookingId, reference }
  */
-export const createHold = onCall(async (request) => {
+export const createHold = onCall(interactive, async (request) => {
   const uid = requireUid(request);
   if (request.auth?.token.role === "admin") throw new HttpsError("permission-denied", "Staff cannot hold a bus.");
   const { start, end } = parseTrip(request);
@@ -298,7 +299,7 @@ async function tripContact(tx: FirebaseFirestore.Transaction, busData: FirebaseF
  *                   with requestId it approves that customer request
  *     declineCancellation { requestId, note? }
  */
-export const bookingAction = onCall(async (request) => {
+export const bookingAction = onCall(interactive, async (request) => {
   const staffUid = await requireActiveStaff(request);
   const bookingId = text(request.data?.bookingId, 80);
   const action = request.data?.action as Action;
