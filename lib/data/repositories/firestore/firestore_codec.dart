@@ -227,6 +227,7 @@ class Codec {
         'supportPhone': c.supportPhone,
         'whatsappNumber': c.whatsappNumber,
         'capacities': c.capacities,
+        'packageNote': c.packageNote,
       };
 
   static AppConfig configFromMap(Map<String, dynamic> m) {
@@ -245,16 +246,17 @@ class Codec {
         for (final c in (m['capacities'] as List?) ?? d.capacities)
           (c as num).toInt()
       ],
+      packageNote: m['packageNote'] as String? ?? d.packageNote,
     );
   }
 
   // --- packages / faqs / audit -------------------------------------------
 
   static Map<String, dynamic> packageToMap(PackageLocation p,
-          {int order = 0}) =>
+          {int? order}) =>
       {
         'city': p.city,
-        'order': order,
+        'order': order ?? p.order,
         'packages': [
           for (final s in p.packages)
             {
@@ -272,8 +274,11 @@ class Codec {
         ],
       };
 
-  static PackageLocation packageFromMap(Map<String, dynamic> m) =>
+  static PackageLocation packageFromMap(Map<String, dynamic> m,
+          {String? id}) =>
       PackageLocation(
+        id: id,
+        order: (m['order'] as num?)?.toInt() ?? 0,
         city: m['city'] as String? ?? '',
         packages: [
           for (final s in (m['packages'] as List?) ?? const [])

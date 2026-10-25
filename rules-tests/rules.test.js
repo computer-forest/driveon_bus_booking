@@ -136,6 +136,20 @@ test("anyone signed in can read buses, locations, packages, faqs and config", as
   }
 });
 
+test("staff edit package rates; customers cannot; a chart list is capped and the city needs a name", async () => {
+  const stamp = () => ({ updatedBy: "staff_919820000001", updatedAt: serverTimestamp() });
+  const charts = (n) => Array.from({ length: n }, () => ({ seater: "A", sampleRates: false, trips: [] }));
+  const city = { city: "Pune", order: 3, packages: charts(2) };
+  await assertSucceeds(setDoc(doc(admin(), "packages/pune"), { ...city, ...stamp() }));
+  await assertSucceeds(setDoc(doc(admin(), "packages/pune"), { ...city, packages: charts(12), ...stamp() }));
+  await assertFails(setDoc(doc(admin(), "packages/pune"), { ...city, packages: charts(13), ...stamp() }));
+  await assertFails(setDoc(doc(admin(), "packages/pune"), { ...city, city: "x".repeat(81), ...stamp() }));
+  await assertFails(setDoc(doc(admin(), "packages/pune"), { ...city, packages: "nope", ...stamp() }));
+  await assertFails(setDoc(doc(customer("cust_919820011223"), "packages/pune"), { ...city, ...stamp() }));
+  await assertFails(setDoc(doc(anon(), "packages/pune"), { ...city, ...stamp() }));
+  await assertSucceeds(deleteDoc(doc(admin(), "packages/pune")));
+});
+
 test("vendors, drivers, templates, GPS links and the audit log are staff-only to read", async () => {
   for (const [path, data] of [
     ["vendors/v1", { name: "V" }],

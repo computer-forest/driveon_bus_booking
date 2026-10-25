@@ -181,7 +181,12 @@ class FirestorePackageRepository extends FirestoreBase implements PackageReposit
 
   @override
   Stream<List<PackageLocation>> watchAll() =>
-      list(db.collection('packages').orderBy('order'), (_, data) => Codec.packageFromMap(data));
+      list(db.collection('packages').orderBy('order'), (id, data) => Codec.packageFromMap(data, id: id));
+
+  @override
+  Future<void> save(PackageLocation location) => db
+      .doc('packages/${location.id ?? PackageLocation.idFor(location.city)}')
+      .set(stamp(Codec.packageToMap(location)));
 }
 
 class FirestoreConfigRepository extends FirestoreBase implements ConfigRepository {

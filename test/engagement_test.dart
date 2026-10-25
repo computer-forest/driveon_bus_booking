@@ -395,6 +395,67 @@ void main() {
       expect(b.notifications.items.firstWhere((n) => n.id == 'ntf-1').read, isTrue);
     });
 
+    testWidgets('tapping a notification about a booking opens it even if no bookings screen was visited first', (tester) async {
+      final b = MockBackend();
+      b.notifications.upsert(
+        (e) => e.id == 'ntf-1',
+        AppNotification(
+          id: 'ntf-1',
+          title: 'Booking confirmed',
+          body: 'CB-20260914-0472 is confirmed.',
+          createdAt: MockData.now,
+          read: false,
+          tone: NotificationTone.success,
+          bookingId: 'bk-0472',
+        ),
+      );
+      await pumpApp(tester, const NotificationsScreen(), user: customerUser(), backend: b);
+      await tester.tap(find.text('Booking confirmed'));
+      await settle(tester);
+      expect(find.text('Booking detail'), findsOneWidget);
+    });
+
+    testWidgets("a staff member's tap on a new request opens that booking", (tester) async {
+      final b = MockBackend();
+      b.notifications.upsert(
+        (e) => e.id == 'ntf-1',
+        AppNotification(
+          id: 'ntf-1',
+          title: 'New booking request',
+          body: 'CB-20260914-0472',
+          createdAt: MockData.now,
+          read: false,
+          tone: NotificationTone.info,
+          bookingId: 'bk-0472',
+        ),
+      );
+      await pumpApp(tester, const AdminNotificationsScreen(), user: staffUser(), backend: b);
+      await tester.tap(find.text('New booking request'));
+      await settle(tester);
+      expect(find.text('CB-20260914-0472'), findsWidgets);
+      expect(find.text('Notifications'), findsNothing);
+    });
+
+    testWidgets("a booking that cannot be loaded says so instead of doing nothing", (tester) async {
+      final b = MockBackend();
+      b.notifications.upsert(
+        (e) => e.id == 'ntf-1',
+        AppNotification(
+          id: 'ntf-1',
+          title: 'Booking confirmed',
+          body: 'Gone',
+          createdAt: MockData.now,
+          read: false,
+          tone: NotificationTone.success,
+          bookingId: 'no-such-booking',
+        ),
+      );
+      await pumpApp(tester, const NotificationsScreen(), user: customerUser(), backend: b);
+      await tester.tap(find.text('Booking confirmed'));
+      await settle(tester);
+      expect(find.textContaining("Couldn't open that booking"), findsOneWidget);
+    });
+
     testWidgets("staff's inbox opens", (tester) async {
       await pumpApp(tester, const AdminNotificationsScreen(), user: staffUser());
       expect(find.text('Notifications'), findsOneWidget);

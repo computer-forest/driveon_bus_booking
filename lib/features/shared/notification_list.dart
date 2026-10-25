@@ -41,12 +41,26 @@ class NotificationList extends ConsumerWidget {
     }
   }
 
-  void _open(WidgetRef ref, AppNotification n) {
+  Future<void> _open(BuildContext context, WidgetRef ref, AppNotification n) async {
     if (!n.read) ref.read(notificationRepositoryProvider).markRead(n.id).catchError((Object _) {});
     final id = n.bookingId;
     if (id == null) return;
-    final booking = ref.read(bookingsProvider).items.where((b) => b.id == id).firstOrNull;
-    if (booking != null) onOpenBooking(booking);
+    // The bookings list is only loaded while a screen that shows it is open,
+    // so ask the repository for it rather than trusting the provider's copy.
+    final messenger = ScaffoldMessenger.of(context);
+    Booking? booking = ref.read(bookingsProvider).items.where((b) => b.id == id).firstOrNull;
+    try {
+      booking ??= (await ref.read(bookingRepositoryProvider).watchAll().first.timeout(const Duration(seconds: 10)))
+          .where((b) => b.id == id)
+          .firstOrNull;
+    } catch (_) {
+      // Handled below, with the same message as a booking that cannot be found.
+    }
+    if (booking != null) {
+      onOpenBooking(booking);
+    } else {
+      messenger.showSnackBar(const SnackBar(content: Text("Couldn't open that booking. Check your connection and try again.")));
+    }
   }
 
   @override
@@ -68,7 +82,7 @@ class NotificationList extends ConsumerWidget {
             final color = toneColor(n.tone);
             return GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () => _open(ref, n),
+              onTap: () => _open(context, ref, n),
               child: Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(

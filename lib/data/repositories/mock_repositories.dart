@@ -37,10 +37,20 @@ class MockBackend {
           for (final p in MockAuthRepository.staffPhones)
             StaffMember(phone: '91$p', name: 'Priya', active: true),
         ]),
+        packages = InMemoryStore([
+          for (var i = 0; i < MockData.packageLocations.length; i++)
+            PackageLocation(
+              id: PackageLocation.idFor(MockData.packageLocations[i].city),
+              order: i,
+              city: MockData.packageLocations[i].city,
+              packages: MockData.packageLocations[i].packages,
+            ),
+        ]),
         config = InMemoryValue(const AppConfig()),
         pushPrefs = InMemoryValue(const PushPrefs()),
         user = InMemoryValue<AppUser?>(null);
 
+  final InMemoryStore<PackageLocation> packages;
   final InMemoryValue<PushPrefs> pushPrefs;
   final InMemoryStore<BusRecord> buses;
   final InMemoryStore<Vendor> vendors;
@@ -437,8 +447,19 @@ class MockContentRepository implements ContentRepository {
 }
 
 class MockPackageRepository implements PackageRepository {
+  MockPackageRepository(this._b);
+  final MockBackend _b;
+
   @override
-  Stream<List<PackageLocation>> watchAll() => Stream.value(MockData.packageLocations);
+  Stream<List<PackageLocation>> watchAll() =>
+      _b.packages.watch().map((all) => [...all]..sort((a, b) => a.order.compareTo(b.order)));
+
+  @override
+  Future<void> save(PackageLocation location) async {
+    final id = location.id ?? PackageLocation.idFor(location.city);
+    final stored = PackageLocation(id: id, order: location.order, city: location.city, packages: location.packages);
+    _b.packages.upsert((e) => (e.id ?? PackageLocation.idFor(e.city)) == id, stored);
+  }
 }
 
 class MockReportRepository implements ReportRepository {

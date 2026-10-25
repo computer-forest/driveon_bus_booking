@@ -72,7 +72,12 @@ class AppConfig {
     this.supportPhone = '+91 99877 74832',
     this.whatsappNumber = '+91 99877 74832',
     this.capacities = const [17, 20, 27, 30, 35, 40],
+    this.packageNote = defaultPackageNote,
   });
+
+  /// Shown under every rate chart; staff can reword it.
+  static const defaultPackageNote =
+      'Rates exclude toll, parking and entry charges, which are paid by the customer.';
 
   final int holdMinutes;
   final int preBufferMinutes;
@@ -81,6 +86,7 @@ class AppConfig {
   final String supportPhone;
   final String whatsappNumber;
   final List<int> capacities;
+  final String packageNote;
 
   Duration get holdDuration => Duration(minutes: holdMinutes);
   Duration get preBuffer => Duration(minutes: preBufferMinutes);
@@ -98,6 +104,7 @@ class AppConfig {
     String? supportPhone,
     String? whatsappNumber,
     List<int>? capacities,
+    String? packageNote,
   }) =>
       AppConfig(
         holdMinutes: holdMinutes ?? this.holdMinutes,
@@ -108,6 +115,7 @@ class AppConfig {
         supportPhone: supportPhone ?? this.supportPhone,
         whatsappNumber: whatsappNumber ?? this.whatsappNumber,
         capacities: capacities ?? this.capacities,
+        packageNote: packageNote ?? this.packageNote,
       );
 }
 
@@ -492,10 +500,20 @@ class SeaterPackage {
 
 /// A city customers can start a packaged outstation trip from.
 class PackageLocation {
-  const PackageLocation({required this.city, required this.packages});
+  const PackageLocation({required this.city, required this.packages, this.id, this.order = 0});
 
   final String city;
   final List<SeaterPackage> packages;
+
+  /// The document id; null for a city staff have not saved yet.
+  final String? id;
+
+  /// Where the city sits in the list customers see.
+  final int order;
+
+  /// The document id a new city gets: its name, lower-cased, with dashes.
+  static String idFor(String city) =>
+      city.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '');
 }
 
 enum NotificationTone { info, success, warning, urgent }

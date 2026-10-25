@@ -134,7 +134,9 @@ service cloud.firestore {
 
     match /packages/{id} {
       allow read: if signedIn();
-      allow create, update: if stamped() && hasFields(['city', 'packages']) && request.resource.data.packages is list;
+      allow create, update: if stamped() && hasFields(['city', 'packages'])
+        && validText(request.resource.data.city, 80)
+        && request.resource.data.packages is list && request.resource.data.packages.size() <= 12;
       allow delete: if isAdmin();
     }
 

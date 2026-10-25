@@ -154,6 +154,9 @@ abstract class ContentRepository {
 
 abstract class PackageRepository {
   Stream<List<PackageLocation>> watchAll();
+
+  /// Creates or replaces one city's rate charts (staff only).
+  Future<void> save(PackageLocation location);
 }
 
 /// Raw material for reports that the app cannot work out from bookings.
