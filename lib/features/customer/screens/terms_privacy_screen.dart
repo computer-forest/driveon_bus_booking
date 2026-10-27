@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../core/widgets/async_body.dart';
+import '../../../data/legal_defaults.dart';
 import '../../../data/models.dart';
 import '../../../data/providers.dart';
 
@@ -26,19 +27,10 @@ class TermsPrivacyScreen extends ConsumerWidget {
       body: SafeArea(
         child: AsyncBody<LegalDocument?>(
           value: ref.watch(legalProvider(_kind)),
-          builder: (doc) {
-            if (doc == null || doc.isEmpty) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.xl),
-                  child: Text(
-                    'Our ${_kind.title} are being finalised. If you need them now, contact support from the Profile tab.',
-                    textAlign: TextAlign.center,
-                    style: textTheme.bodyLarge,
-                  ),
-                ),
-              );
-            }
+          builder: (stored) {
+            // Until staff save their own wording, the basic text applies.
+            final stock = stored == null || stored.isEmpty;
+            final doc = stock ? LegalDocument(sections: legalDefaults[_kind]!) : stored;
             final updated = doc.updatedAt;
             return ListView(
               padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.xxl),

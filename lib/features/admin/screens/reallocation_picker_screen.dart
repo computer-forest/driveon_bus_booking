@@ -12,8 +12,8 @@ import '../../../data/availability.dart';
 import '../../../data/models.dart';
 import '../../../data/providers.dart';
 
-/// REA-01..07: every bus free for the booking's exact window (including
-/// buffer), a mandatory reason, and — for a round trip — the new bus must
+/// REA-01..07: every bus free for the booking's exact window (the buffer
+/// is not counted), a mandatory reason, and — for a round trip — the new bus must
 /// be free for the entire remaining window, not just one leg.
 ///
 /// What staff decided: the bus, why, and a new fare if the cost changes.

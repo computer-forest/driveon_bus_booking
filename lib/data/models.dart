@@ -69,8 +69,8 @@ class AppConfig {
     this.preBufferMinutes = 45,
     this.postBufferMinutes = 45,
     this.defaultAdvancePercent = 25,
-    this.supportPhone = '+91 98200 00000',
-    this.whatsappNumber = '+91 98200 00000',
+    this.supportPhone = '+91 99877 74832',
+    this.whatsappNumber = '+91 99877 74832',
     this.capacities = const [17, 20, 27, 30, 35, 40],
   });
 

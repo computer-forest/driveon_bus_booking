@@ -65,8 +65,8 @@ Iterable<DateTime> daysTouched(DateTime start, DateTime end) sync* {
 /// return drop, so checking [start]..[end] already covers the idle days.
 ///
 /// [bufferBefore] and [bufferAfter] widen every existing booking, so a bus
-/// is not offered too close to another trip. Both default to zero because
-/// whether buffers should block a bus is still an open client question.
+/// is not offered too close to another trip. Both default to zero: the client
+/// decided buffers do not block a bus, and staff check each booking by hand.
 bool isBusFree(
   BusRecord bus,
   DateTime start,

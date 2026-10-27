@@ -148,7 +148,7 @@ class _ConfigFormState extends ConsumerState<_ConfigForm> {
         Padding(
           padding: const EdgeInsets.only(top: AppSpacing.sm),
           child: Text(
-            'Per-bus overrides are set from that bus\'s record. Buffer is never computed automatically.',
+            'Buffers are a guide for staff when confirming a trip. They do not hide a bus from search; staff check and confirm each booking by hand.',
             style: textTheme.labelMedium,
           ),
         ),

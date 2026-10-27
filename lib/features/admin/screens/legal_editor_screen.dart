@@ -5,6 +5,7 @@ import '../../../core/utils/guarded_write.dart';
 import '../../../core/widgets/app_atoms.dart';
 import '../../../core/widgets/app_buttons.dart';
 import '../../../core/widgets/async_body.dart';
+import '../../../data/legal_defaults.dart';
 import '../../../data/models.dart';
 import '../../../data/providers.dart';
 
@@ -57,7 +58,7 @@ class _Editor extends ConsumerStatefulWidget {
 
 class _EditorState extends ConsumerState<_Editor> {
   late final List<_Draft> _drafts = [
-    for (final s in widget.initial?.sections ?? const <LegalSection>[]) _Draft(heading: s.heading, body: s.body),
+    for (final s in (widget.initial == null || widget.initial!.isEmpty) ? legalDefaults[widget.kind]! : widget.initial!.sections) _Draft(heading: s.heading, body: s.body),
   ];
   bool _saving = false;
 
@@ -106,7 +107,7 @@ class _EditorState extends ConsumerState<_Editor> {
         if (_drafts.isEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-            child: Text('Nothing here yet. Until you add text, customers are told this is being finalised.', style: textTheme.labelMedium),
+            child: Text('Nothing here. Add a section to write your own wording.', style: textTheme.labelMedium),
           ),
         for (var i = 0; i < _drafts.length; i++) ...[
           AppCard(
