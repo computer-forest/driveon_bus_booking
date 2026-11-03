@@ -1204,11 +1204,16 @@ PODS:
     - Firebase/Functions (~> 12.19.0)
     - firebase_core
     - FlutterMacOS
+  - file_selector_macos (0.0.1):
+    - FlutterMacOS
   - Firebase/Auth (12.19.0):
     - Firebase/CoreOnly
     - FirebaseAuth (~> 12.19.0)
   - Firebase/CoreOnly (12.19.0):
     - FirebaseCore (~> 12.19.0)
+  - Firebase/Crashlytics (12.19.0):
+    - Firebase/CoreOnly
+    - FirebaseCrashlytics (~> 12.19.0)
   - Firebase/Firestore (12.19.0):
     - Firebase/CoreOnly
     - FirebaseFirestore (~> 12.19.0)
@@ -1218,6 +1223,9 @@ PODS:
   - Firebase/Messaging (12.19.0):
     - Firebase/CoreOnly
     - FirebaseMessaging (~> 12.19.0)
+  - Firebase/Storage (12.19.0):
+    - Firebase/CoreOnly
+    - FirebaseStorage (~> 12.19.0)
   - firebase_auth (6.7.0):
     - Firebase/Auth (~> 12.19.0)
     - Firebase/CoreOnly (~> 12.19.0)
@@ -1226,9 +1234,19 @@ PODS:
   - firebase_core (4.15.0):
     - Firebase/CoreOnly (~> 12.19.0)
     - FlutterMacOS
+  - firebase_crashlytics (5.4.0):
+    - Firebase/CoreOnly (~> 12.19.0)
+    - Firebase/Crashlytics (~> 12.19.0)
+    - firebase_core
+    - FlutterMacOS
   - firebase_messaging (16.7.0):
     - Firebase/CoreOnly (~> 12.19.0)
     - Firebase/Messaging (~> 12.19.0)
+    - firebase_core
+    - FlutterMacOS
+  - firebase_storage (13.6.0):
+    - Firebase/CoreOnly (~> 12.19.0)
+    - Firebase/Storage (~> 12.19.0)
     - firebase_core
     - FlutterMacOS
   - FirebaseAppCheckInterop (12.19.0)
@@ -1250,6 +1268,15 @@ PODS:
     - FirebaseCore (~> 12.19.0)
   - FirebaseCoreInternal (12.19.0):
     - "GoogleUtilities/NSData+zlib (~> 8.1)"
+  - FirebaseCrashlytics (12.19.0):
+    - FirebaseCore (~> 12.19.0)
+    - FirebaseInstallations (~> 12.19.0)
+    - FirebaseRemoteConfigInterop (~> 12.19.0)
+    - FirebaseSessions (~> 12.19.0)
+    - GoogleDataTransport (~> 10.1)
+    - GoogleUtilities/Environment (~> 8.1)
+    - nanopb (~> 3.30910.0)
+    - PromisesObjC (~> 2.4)
   - FirebaseFirestore (12.19.0):
     - FirebaseCore (~> 12.19.0)
     - FirebaseCoreExtension (~> 12.19.0)
@@ -1293,7 +1320,24 @@ PODS:
     - GoogleUtilities/UserDefaults (~> 8.1)
     - nanopb (~> 3.30910.0)
   - FirebaseMessagingInterop (12.19.0)
+  - FirebaseRemoteConfigInterop (12.19.0)
+  - FirebaseSessions (12.19.0):
+    - FirebaseCore (~> 12.19.0)
+    - FirebaseCoreExtension (~> 12.19.0)
+    - FirebaseInstallations (~> 12.19.0)
+    - GoogleDataTransport (~> 10.1)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GoogleUtilities/UserDefaults (~> 8.1)
+    - nanopb (~> 3.30910.0)
+    - PromisesSwift (~> 2.1)
   - FirebaseSharedSwift (12.19.0)
+  - FirebaseStorage (12.19.0):
+    - FirebaseAppCheckInterop (~> 12.19.0)
+    - FirebaseAuthInterop (~> 12.19.0)
+    - FirebaseCore (~> 12.19.0)
+    - FirebaseCoreExtension (~> 12.19.0)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GTMSessionFetcher/Core (< 6.0, >= 3.4)
   - flutter_secure_storage_darwin (10.0.0):
     - Flutter
     - FlutterMacOS
@@ -1428,16 +1472,28 @@ PODS:
   - nanopb/decode (3.30910.0)
   - nanopb/encode (3.30910.0)
   - PromisesObjC (2.4.0)
+  - PromisesSwift (2.4.0):
+    - PromisesObjC (= 2.4.0)
+  - sqflite_darwin (0.0.4):
+    - Flutter
+    - FlutterMacOS
+  - url_launcher_macos (0.0.1):
+    - FlutterMacOS
 
 DEPENDENCIES:
   - cloud_firestore (from `Flutter/ephemeral/.symlinks/plugins/cloud_firestore/macos`)
   - cloud_functions (from `Flutter/ephemeral/.symlinks/plugins/cloud_functions/macos`)
+  - file_selector_macos (from `Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos`)
   - firebase_auth (from `Flutter/ephemeral/.symlinks/plugins/firebase_auth/macos`)
   - firebase_core (from `Flutter/ephemeral/.symlinks/plugins/firebase_core/macos`)
+  - firebase_crashlytics (from `Flutter/ephemeral/.symlinks/plugins/firebase_crashlytics/macos`)
   - firebase_messaging (from `Flutter/ephemeral/.symlinks/plugins/firebase_messaging/macos`)
+  - firebase_storage (from `Flutter/ephemeral/.symlinks/plugins/firebase_storage/macos`)
   - flutter_secure_storage_darwin (from `Flutter/ephemeral/.symlinks/plugins/flutter_secure_storage_darwin/darwin`)
   - FlutterMacOS (from `Flutter/ephemeral`)
   - local_auth_darwin (from `Flutter/ephemeral/.symlinks/plugins/local_auth_darwin/darwin`)
+  - sqflite_darwin (from `Flutter/ephemeral/.symlinks/plugins/sqflite_darwin/darwin`)
+  - url_launcher_macos (from `Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos`)
 
 SPEC REPOS:
   trunk:
@@ -1450,13 +1506,17 @@ SPEC REPOS:
     - FirebaseCore
     - FirebaseCoreExtension
     - FirebaseCoreInternal
+    - FirebaseCrashlytics
     - FirebaseFirestore
     - FirebaseFirestoreInternal
     - FirebaseFunctions
     - FirebaseInstallations
     - FirebaseMessaging
     - FirebaseMessagingInterop
+    - FirebaseRemoteConfigInterop
+    - FirebaseSessions
     - FirebaseSharedSwift
+    - FirebaseStorage
     - GoogleDataTransport
     - GoogleUtilities
     - "gRPC-C++"
@@ -1465,47 +1525,65 @@ SPEC REPOS:
     - leveldb-library
     - nanopb
     - PromisesObjC
+    - PromisesSwift
 
 EXTERNAL SOURCES:
   cloud_firestore:
     :path: Flutter/ephemeral/.symlinks/plugins/cloud_firestore/macos
   cloud_functions:
     :path: Flutter/ephemeral/.symlinks/plugins/cloud_functions/macos
+  file_selector_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos
   firebase_auth:
     :path: Flutter/ephemeral/.symlinks/plugins/firebase_auth/macos
   firebase_core:
     :path: Flutter/ephemeral/.symlinks/plugins/firebase_core/macos
+  firebase_crashlytics:
+    :path: Flutter/ephemeral/.symlinks/plugins/firebase_crashlytics/macos
   firebase_messaging:
     :path: Flutter/ephemeral/.symlinks/plugins/firebase_messaging/macos
+  firebase_storage:
+    :path: Flutter/ephemeral/.symlinks/plugins/firebase_storage/macos
   flutter_secure_storage_darwin:
     :path: Flutter/ephemeral/.symlinks/plugins/flutter_secure_storage_darwin/darwin
   FlutterMacOS:
     :path: Flutter/ephemeral
   local_auth_darwin:
     :path: Flutter/ephemeral/.symlinks/plugins/local_auth_darwin/darwin
+  sqflite_darwin:
+    :path: Flutter/ephemeral/.symlinks/plugins/sqflite_darwin/darwin
+  url_launcher_macos:
+    :path: Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos
 
 SPEC CHECKSUMS:
   abseil: a05cc83bf02079535e17169a73c5be5ba47f714b
   BoringSSL-GRPC: dded2a44897e45f28f08ae87a55ee4bcd19bc508
   cloud_firestore: 9b70b8b29bf8160be076793e2060e36c4827714d
   cloud_functions: 4004b7d90ce3499c614c8bdf321f12e22daa4f9a
+  file_selector_macos: 9e9e068e90ebee155097d00e89ae91edb2374db7
   Firebase: 7ca191e43724142f79fae653547b3382c45413cc
   firebase_auth: 804cfa1228062df4ae24a5ef37dbca85933e6c3d
   firebase_core: 43e1937898a25c5d76bc3ac4e58539465c9f219d
+  firebase_crashlytics: 9d6f7382bc9d0cfa4099b189416dc17f079aa413
   firebase_messaging: cf6920ca401d6870c1095a15cec1d4b9ca92b89f
+  firebase_storage: f6a2a056abaacc3641ad89b523c185d6811bed73
   FirebaseAppCheckInterop: bd4b791ffaed7ae719304af6369d243ddee5e4a0
   FirebaseAuth: 8c38236f67e5e3dd6aacf3e0c46b3eed31e9c820
   FirebaseAuthInterop: f1ad187a0052276ad49a990538accfdf36fc595d
   FirebaseCore: c990214798d7c568ad436a15ba7da25c7a278c9a
   FirebaseCoreExtension: 201c78d7491a273d61d8afbf491214276a951e6d
   FirebaseCoreInternal: 656b1c2fd5a1c5976183dc54b73deda78fb26ee3
+  FirebaseCrashlytics: 5c8e09beebcd41913b35250cd0e533b58e4961a0
   FirebaseFirestore: 311722a65983b64e912ef1aa5ab8933cefbbf6d8
   FirebaseFirestoreInternal: c5fe347a024926551b8cb6d6b3ba78f19a7b525e
   FirebaseFunctions: 5b5ae19d3cd261b74802d54780ac79db152562cd
   FirebaseInstallations: f70a49eed611f5602f373e40974b3b01556ac217
   FirebaseMessaging: c15f48126adbe8b4d3238a5e1fa24bab3ad3e472
   FirebaseMessagingInterop: 8befe363c0f23eaff7b1807dbc76a0546d79f00c
+  FirebaseRemoteConfigInterop: 90659b3cac8f6de884f2d930fbdbeb711533e142
+  FirebaseSessions: 39bcaa7c16b5d8b91d58f495f29ce2988d2f915c
   FirebaseSharedSwift: c91f36aeaa566e12b682caacc40d34c8303c3124
+  FirebaseStorage: 357354fbde2ba62983c0fe5d9cf10155046b5404
   flutter_secure_storage_darwin: 46e401699982ee74142909676535e0f6a7321e58
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
@@ -1517,6 +1595,9 @@ SPEC CHECKSUMS:
   local_auth_darwin: c3ee6cce0a8d56be34c8ccb66ba31f7f180aaebb
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
+  PromisesSwift: 9d77319bbe72ebf6d872900551f7eeba9bce2851
+  sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
+  url_launcher_macos: f87a979182d112f911de6820aefddaf56ee9fbfd
 
 PODFILE CHECKSUM: 54d867c82ac51cbd61b565781b9fada492027009
 

@@ -98,7 +98,10 @@ class Msg91OtpService implements OtpService {
 
   static OtpException _fromText(String text, {String? fallback}) {
     final t = text.toLowerCase();
-    if (RegExp(r'socketexception|failed host lookup|clientexception|timeout|network|connection').hasMatch(t)) {
+    // Only real transport failures count as "no internet". The old pattern
+    // also matched any server message that merely contained "network" or
+    // "connection", which hid the true reason behind a misleading notice.
+    if (RegExp(r'socketexception|failed host lookup|handshakeexception|timeoutexception|timed out|network is unreachable|connection (refused|reset|closed|abort)').hasMatch(t)) {
       return const OtpException(OtpFailure.network, AuthMessages.noInternet);
     }
     if (t.contains('expire')) return const OtpException(OtpFailure.expired, AuthMessages.expiredOtp);

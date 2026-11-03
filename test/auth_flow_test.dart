@@ -107,6 +107,11 @@ void main() {
       expect(Msg91OtpService.classify('OTP expired').kind, OtpFailure.expired);
       expect(Msg91OtpService.classify('Retry limit reached').kind, OtpFailure.tooManyAttempts);
       expect(Msg91OtpService.classify('Exception: SocketException: Failed host lookup').kind, OtpFailure.network);
+      expect(Msg91OtpService.classify('Connection closed before full header was received').kind, OtpFailure.network);
+      // A server message that merely mentions a network is not "no internet".
+      final other = Msg91OtpService.classify('Failed to post data: 400, {"message":"Your network operator is not supported"}');
+      expect(other.kind, OtpFailure.other);
+      expect(other.message, 'Your network operator is not supported');
       expect(Msg91OtpService.classify('Failed to post data: 400, {"message":"Mobile number invalid"}').message,
           'Mobile number invalid');
     });
