@@ -307,31 +307,99 @@ class Vendor {
   final String? gst;
 }
 
-/// One weekday's charter window for a bus. Admin sets these per bus on the
+/// The most charter slots a bus can have on one weekday.
+const int maxSlotsPerDay = 4;
+
+/// One stretch of a day, such as 3–5 PM, when a bus can be chartered.
+class TimeSlot {
+  const TimeSlot({required this.start, required this.end});
+
+  final TimeOfDay start;
+  final TimeOfDay end;
+
+  int get startMinutes => start.hour * 60 + start.minute;
+  int get endMinutes => end.hour * 60 + end.minute;
+
+  /// True when [minutes] since midnight falls inside the slot, ends included.
+  bool contains(int minutes) => minutes >= startMinutes && minutes <= endMinutes;
+
+  @override
+  bool operator ==(Object other) => other is TimeSlot && other.start == start && other.end == end;
+
+  @override
+  int get hashCode => Object.hash(start, end);
+}
+
+/// One weekday's charter slots for a bus. Admin sets these per bus on the
 /// bus form; search and the calendar both read them.
+///
+/// [start] and [end] are the first slot; [extraSlots] holds any later ones,
+/// so a plain one-slot day stays a const value.
 class DayAvailability {
   const DayAvailability({
     required this.available,
     this.start = const TimeOfDay(hour: 6, minute: 0),
     this.end = const TimeOfDay(hour: 22, minute: 0),
+    this.extraSlots = const [],
   });
 
   const DayAvailability.closed()
       : available = false,
         start = const TimeOfDay(hour: 6, minute: 0),
-        end = const TimeOfDay(hour: 22, minute: 0);
+        end = const TimeOfDay(hour: 22, minute: 0),
+        extraSlots = const [];
+
+  /// A day made of [slots], earliest first. [slots] must not be empty.
+  factory DayAvailability.withSlots({required bool available, required List<TimeSlot> slots}) {
+    final sorted = [...slots]..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+    return DayAvailability(
+      available: available,
+      start: sorted.first.start,
+      end: sorted.first.end,
+      extraSlots: List.unmodifiable(sorted.skip(1)),
+    );
+  }
 
   final bool available;
   final TimeOfDay start;
   final TimeOfDay end;
+  final List<TimeSlot> extraSlots;
 
-  DayAvailability copyWith(
-          {bool? available, TimeOfDay? start, TimeOfDay? end}) =>
-      DayAvailability(
-        available: available ?? this.available,
-        start: start ?? this.start,
-        end: end ?? this.end,
-      );
+  /// Every slot of the day, earliest first.
+  List<TimeSlot> get slots => [TimeSlot(start: start, end: end), ...extraSlots];
+
+  /// The slot that [minutes] since midnight falls in, if any.
+  TimeSlot? slotContaining(int minutes) {
+    for (final s in slots) {
+      if (s.contains(minutes)) return s;
+    }
+    return null;
+  }
+
+  /// What is wrong with the slots, in words, or null when they can be saved.
+  /// A closed day is always fine.
+  String? get problem {
+    if (!available) return null;
+    final all = slots;
+    if (all.length > maxSlotsPerDay) return 'Use at most $maxSlotsPerDay slots.';
+    for (final s in all) {
+      if (s.endMinutes <= s.startMinutes) return "'To' must be after 'From'.";
+    }
+    for (var i = 1; i < all.length; i++) {
+      if (all[i].startMinutes < all[i - 1].endMinutes) return 'These slots overlap.';
+    }
+    return null;
+  }
+
+  DayAvailability copyWith({bool? available, TimeOfDay? start, TimeOfDay? end, List<TimeSlot>? slots}) =>
+      slots != null
+          ? DayAvailability.withSlots(available: available ?? this.available, slots: slots)
+          : DayAvailability(
+              available: available ?? this.available,
+              start: start ?? this.start,
+              end: end ?? this.end,
+              extraSlots: extraSlots,
+            );
 }
 
 class BusRecord {

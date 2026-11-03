@@ -15,7 +15,9 @@ class Codec {
   static dynamic encode(dynamic value) {
     if (value is DateTime) return Timestamp.fromDate(value);
     if (value is Map) {
-      return <String, dynamic>{for (final e in value.entries) e.key as String: encode(e.value)};
+      return <String, dynamic>{
+        for (final e in value.entries) e.key as String: encode(e.value)
+      };
     }
     if (value is List) return [for (final e in value) encode(e)];
     return value;
@@ -25,7 +27,9 @@ class Codec {
   static dynamic decode(dynamic value) {
     if (value is Timestamp) return value.toDate();
     if (value is Map) {
-      return <String, dynamic>{for (final e in value.entries) e.key as String: decode(e.value)};
+      return <String, dynamic>{
+        for (final e in value.entries) e.key as String: decode(e.value)
+      };
     }
     if (value is List) return [for (final e in value) decode(e)];
     return value;
@@ -113,8 +117,14 @@ class Codec {
           for (final d in b.weeklyAvailability)
             {
               'available': d.available,
+              // The first slot, which is all that app versions before
+              // multi-slot days read.
               'start': _minutes(d.start),
-              'end': _minutes(d.end)
+              'end': _minutes(d.end),
+              'slots': [
+                for (final s in d.slots)
+                  {'start': _minutes(s.start), 'end': _minutes(s.end)},
+              ],
             },
         ],
       };
@@ -153,12 +163,21 @@ class Codec {
               ? () {
                   final d = week[i] as Map;
                   final available = d['available'] as bool? ?? false;
-                  return available
+                  if (!available) return const DayAvailability.closed();
+                  // Days saved before multi-slot days have only start/end.
+                  final slots = [
+                    for (final s in (d['slots'] as List?) ?? const [])
+                      if (s is Map && s['start'] is num && s['end'] is num)
+                        TimeSlot(
+                            start: _time(s['start']), end: _time(s['end'])),
+                  ];
+                  return slots.isEmpty
                       ? DayAvailability(
                           available: true,
                           start: _time(d['start']),
                           end: _time(d['end']))
-                      : const DayAvailability.closed();
+                      : DayAvailability.withSlots(
+                          available: true, slots: slots);
                 }()
               : const DayAvailability.closed(),
       ],
@@ -252,9 +271,7 @@ class Codec {
 
   // --- packages / faqs / audit -------------------------------------------
 
-  static Map<String, dynamic> packageToMap(PackageLocation p,
-          {int? order}) =>
-      {
+  static Map<String, dynamic> packageToMap(PackageLocation p, {int? order}) => {
         'city': p.city,
         'order': order ?? p.order,
         'packages': [
@@ -274,8 +291,7 @@ class Codec {
         ],
       };
 
-  static PackageLocation packageFromMap(Map<String, dynamic> m,
-          {String? id}) =>
+  static PackageLocation packageFromMap(Map<String, dynamic> m, {String? id}) =>
       PackageLocation(
         id: id,
         order: (m['order'] as num?)?.toInt() ?? 0,

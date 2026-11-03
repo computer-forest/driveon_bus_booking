@@ -59,6 +59,17 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
     }
 
+    // A weekday's slots: at most 4. Days saved before multi-slot days have
+    // no slots field. Times are checked by the server when it searches.
+    function fewSlots(day) {
+      return day is map && day.get('slots', []) is list && day.get('slots', []).size() <= 4;
+    }
+
+    function fewSlotsAllWeek(week) {
+      return fewSlots(week[0]) && fewSlots(week[1]) && fewSlots(week[2]) && fewSlots(week[3])
+        && fewSlots(week[4]) && fewSlots(week[5]) && fewSlots(week[6]);
+    }
+
     function hasFields(fields) {
       return request.resource.data.keys().hasAll(fields);
     }
@@ -94,6 +105,7 @@ service cloud.firestore {
         && request.resource.data.active is bool
         && request.resource.data.weeklyAvailability is list
         && request.resource.data.weeklyAvailability.size() == 7
+        && fewSlotsAllWeek(request.resource.data.weeklyAvailability)
         && request.resource.data.get('photos', []) is list
         && request.resource.data.get('photos', []).size() <= 4;
       allow delete: if false;

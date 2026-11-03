@@ -10,9 +10,14 @@ DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
 int minutesOf(TimeOfDay t) => t.hour * 60 + t.minute;
 
-/// The window the admin set for the weekday [day] falls on.
+/// The slots the admin set for the weekday [day] falls on.
 DayAvailability availabilityFor(BusRecord bus, DateTime day) =>
     bus.weeklyAvailability[day.weekday - 1];
+
+/// The slot a trip starting at [start] departs in, for showing customers the
+/// hours that apply to them. Null when the bus is not available then.
+TimeSlot? departureSlot(BusRecord bus, DateTime start) =>
+    availabilityFor(bus, start).slotContaining(minutesOf(TimeOfDay.fromDateTime(start)));
 
 bool _overlaps(DateTime aStart, DateTime aEnd, DateTime bStart, DateTime bEnd) =>
     aStart.isBefore(bEnd) && bStart.isBefore(aEnd);
@@ -56,8 +61,9 @@ Iterable<DateTime> daysTouched(DateTime start, DateTime end) sync* {
 }
 
 /// A bus is free when it is active, every day the charter touches is one
-/// the admin marked available, the bus can depart at pickup and is back by
-/// drop, no blackout covers the span, and nothing else is already booked.
+/// the admin marked available, pickup falls inside one of that day's slots,
+/// drop falls inside a slot too (the same slot, for a same-day trip), no
+/// blackout covers the span, and nothing else is already booked.
 ///
 /// On a multi-day charter the bus stays with the customer overnight, so the
 /// window gates the departure and the return rather than the hours in
@@ -82,11 +88,16 @@ bool isBusFree(
     if (!availabilityFor(bus, day).available) return false;
   }
 
-  final departure = availabilityFor(bus, start);
-  if (minutesOf(TimeOfDay.fromDateTime(start)) < minutesOf(departure.start)) return false;
-
-  final arrival = availabilityFor(bus, end);
-  if (minutesOf(TimeOfDay.fromDateTime(end)) > minutesOf(arrival.end)) return false;
+  final departure = departureSlot(bus, start);
+  if (departure == null) return false;
+  final arrivalMinutes = minutesOf(TimeOfDay.fromDateTime(end));
+  if (dateOnly(start) == dateOnly(end)) {
+    // A same-day trip must fit in one slot: the gap between slots is not
+    // bookable.
+    if (!departure.contains(arrivalMinutes)) return false;
+  } else if (availabilityFor(bus, end).slotContaining(arrivalMinutes) == null) {
+    return false;
+  }
 
   if (isBlackedOut(bus.id, start, end, blackouts)) return false;
 

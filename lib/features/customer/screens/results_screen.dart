@@ -100,7 +100,8 @@ class ResultsScreen extends ConsumerWidget {
                 separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.lg),
                 itemBuilder: (context, index) {
                   final bus = results[index];
-                  final window = availabilityFor(bus, criteria.startsAt);
+                  // Search only returns buses whose slot holds the pickup.
+                  final window = departureSlot(bus, criteria.startsAt) ?? availabilityFor(bus, criteria.startsAt).slots.first;
                   return _StaggeredEntrance(
                     index: index,
                     child: BusResultCard(

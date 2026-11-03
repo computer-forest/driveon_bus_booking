@@ -188,6 +188,15 @@ test("a bus must be well formed", async () => {
   await assertFails(setDoc(doc(db, "buses/b"), { ...validBus(), active: "yes" }));
 });
 
+test("a bus may have up to 4 slots on a day, not more", async () => {
+  const db = admin();
+  const slot = (h) => ({ start: h * 60, end: h * 60 + 60 });
+  const day = (n) => ({ available: true, start: 360, end: 420, slots: Array.from({ length: n }, (_, i) => slot(6 + i * 2)) });
+  const week = (n) => Array.from({ length: 7 }, (_, i) => day(i === 3 ? n : 1));
+  await assertSucceeds(setDoc(doc(db, "buses/b"), { ...validBus(), weeklyAvailability: week(4) }));
+  await assertFails(setDoc(doc(db, "buses/b"), { ...validBus(), weeklyAvailability: week(5) }));
+});
+
 test("buses, vendors, drivers and templates are never deleted", async () => {
   await seedDoc("buses/bus-1", { regNumber: "X" });
   await seedDoc("vendors/v1", { name: "V" });

@@ -4,7 +4,7 @@ import { logger } from "firebase-functions/v2";
 import { CallableRequest, HttpsError, onCall } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 
-import { Blackout, Bus, DayWindow, Occupied, dayStart, isBusFree, occupiesBus, parseIst } from "./availability";
+import { Blackout, Bus, Occupied, dayStart, isBusFree, occupiesBus, parseIst, toDayWindow } from "./availability";
 import { warnExpiringHolds } from "./bookingEvents";
 import { requireActiveStaff } from "./staffGuard";
 import { interactive } from "./options";
@@ -43,13 +43,7 @@ function toBus(id: string, d: FirebaseFirestore.DocumentData): Bus {
     id,
     active: d.active === true,
     capacity: typeof d.capacity === "number" ? d.capacity : 0,
-    weeklyAvailability: Array.isArray(d.weeklyAvailability)
-      ? (d.weeklyAvailability as DayWindow[]).map((w) => ({
-          available: w.available === true,
-          start: Number(w.start ?? 0),
-          end: Number(w.end ?? 0),
-        }))
-      : [],
+    weeklyAvailability: Array.isArray(d.weeklyAvailability) ? d.weeklyAvailability.map(toDayWindow) : [],
   };
 }
 

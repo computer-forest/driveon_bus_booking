@@ -269,10 +269,9 @@ class _BusCalendarScreenState extends ConsumerState<BusCalendarScreen> {
       caption = 'Blacked out · ${blackout.reason}';
     } else if (!window.available) {
       caption = 'Unavailable';
-    } else if (bookings.isEmpty) {
-      caption = 'Free all day · ${AppDateFormat.timeRange(window.start, window.end)}';
     } else {
-      caption = 'Available ${AppDateFormat.timeRange(window.start, window.end)}';
+      final hours = [for (final s in window.slots) AppDateFormat.timeRange(s.start, s.end)].join(', ');
+      caption = bookings.isEmpty ? 'Free all day · $hours' : 'Available $hours';
     }
 
     return Padding(
@@ -320,20 +319,21 @@ class _BusCalendarScreenState extends ConsumerState<BusCalendarScreen> {
                         ),
                       )
                     else if (window.available) ...[
-                      Positioned(
-                        left: _offsetFor(window.start.hour + window.start.minute / 60, width),
-                        width: (_offsetFor(window.end.hour + window.end.minute / 60, width) -
-                                _offsetFor(window.start.hour + window.start.minute / 60, width))
-                            .clamp(0.0, width),
-                        top: 0,
-                        bottom: 0,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryTint,
-                            borderRadius: AppRadius.tagRadius,
+                      for (final slot in window.slots)
+                        Positioned(
+                          left: _offsetFor(slot.start.hour + slot.start.minute / 60, width),
+                          width: (_offsetFor(slot.end.hour + slot.end.minute / 60, width) -
+                                  _offsetFor(slot.start.hour + slot.start.minute / 60, width))
+                              .clamp(0.0, width),
+                          top: 0,
+                          bottom: 0,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryTint,
+                              borderRadius: AppRadius.tagRadius,
+                            ),
                           ),
                         ),
-                      ),
                       for (final booking in bookings)
                         Positioned(
                           left: _offsetFor(_hourOf(booking.start, _day), width),

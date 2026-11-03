@@ -11,11 +11,41 @@
 const DAY = 24 * 60 * 60 * 1000;
 const IST_OFFSET = 330 * 60 * 1000;
 
-export interface DayWindow {
-  available: boolean;
-  /** Minutes since midnight. */
+/** One stretch of a day when a bus can be chartered, in minutes since midnight. */
+export interface Slot {
   start: number;
   end: number;
+}
+
+export interface DayWindow {
+  available: boolean;
+  /** Earliest first; never empty on an available day. */
+  slots: Slot[];
+}
+
+/** The most slots a bus can have on one weekday. */
+export const MAX_SLOTS_PER_DAY = 4;
+
+/**
+ * Reads one stored day. Days saved before multi-slot days carry only
+ * start/end; malformed slots are dropped.
+ */
+export function toDayWindow(w: unknown): DayWindow {
+  const d = (w ?? {}) as Record<string, unknown>;
+  const valid = (s: unknown): s is Slot => {
+    const o = s as Record<string, unknown>;
+    return !!o && typeof o.start === "number" && typeof o.end === "number" && o.start < o.end;
+  };
+  const stored = Array.isArray(d.slots) ? d.slots.filter(valid).map((s) => ({ start: s.start, end: s.end })) : [];
+  const single = { start: Number(d.start ?? 0), end: Number(d.end ?? 0) };
+  const slots = (stored.length > 0 ? stored : valid(single) ? [single] : [])
+    .slice(0, MAX_SLOTS_PER_DAY)
+    .sort((a, b) => a.start - b.start);
+  return { available: d.available === true && slots.length > 0, slots };
+}
+
+function slotContaining(day: DayWindow, minutes: number): Slot | undefined {
+  return day.slots.find((s) => minutes >= s.start && minutes <= s.end);
 }
 
 export interface Bus {
@@ -83,9 +113,10 @@ export function isBlackedOut(busId: string, start: number, end: number, blackout
 
 /**
  * A bus is free when it is active, every day the charter touches is one the
- * admin marked available, it can depart at pickup and is back by drop, no
- * blackout covers the span, and nothing else is booked. On a multi-day
- * charter the window gates departure and return, not the hours between.
+ * admin marked available, pickup falls inside one of that day's slots, drop
+ * falls inside a slot too (the same one, for a same-day trip), no blackout
+ * covers the span, and nothing else is booked. On a multi-day charter the
+ * slots gate departure and return, not the hours between.
  */
 export function isBusFree(
   bus: Bus,
@@ -103,11 +134,15 @@ export function isBusFree(
     if (!bus.weeklyAvailability[weekdayIndex(day)].available) return false;
   }
 
-  const departure = bus.weeklyAvailability[weekdayIndex(start)];
-  if (minutesOfDay(start) < departure.start) return false;
-
-  const arrival = bus.weeklyAvailability[weekdayIndex(end)];
-  if (minutesOfDay(end) > arrival.end) return false;
+  const departure = slotContaining(bus.weeklyAvailability[weekdayIndex(start)], minutesOfDay(start));
+  if (!departure) return false;
+  const arrival = minutesOfDay(end);
+  if (dayStart(start) === dayStart(end)) {
+    // A same-day trip must fit in one slot: the gap between slots is not bookable.
+    if (arrival > departure.end) return false;
+  } else if (!slotContaining(bus.weeklyAvailability[weekdayIndex(end)], arrival)) {
+    return false;
+  }
 
   if (isBlackedOut(bus.id, start, end, blackouts)) return false;
 

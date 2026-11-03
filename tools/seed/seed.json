@@ -107,41 +107,84 @@
         "Reading lights",
         "Charging points"
       ],
+      "photos": [],
       "weeklyAvailability": [
         {
           "available": true,
           "start": 840,
-          "end": 1320
+          "end": 1320,
+          "slots": [
+            {
+              "start": 840,
+              "end": 1320
+            }
+          ]
         },
         {
           "available": true,
           "start": 840,
-          "end": 1320
+          "end": 1320,
+          "slots": [
+            {
+              "start": 840,
+              "end": 1320
+            }
+          ]
         },
         {
           "available": true,
           "start": 840,
-          "end": 1320
+          "end": 1320,
+          "slots": [
+            {
+              "start": 840,
+              "end": 1320
+            }
+          ]
         },
         {
           "available": true,
           "start": 840,
-          "end": 1320
+          "end": 1320,
+          "slots": [
+            {
+              "start": 840,
+              "end": 1320
+            }
+          ]
         },
         {
           "available": true,
           "start": 840,
-          "end": 1320
+          "end": 1320,
+          "slots": [
+            {
+              "start": 840,
+              "end": 1320
+            }
+          ]
         },
         {
           "available": false,
           "start": 360,
-          "end": 1320
+          "end": 1320,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1320
+            }
+          ]
         },
         {
           "available": false,
           "start": 360,
-          "end": 1320
+          "end": 1320,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1320
+            }
+          ]
         }
       ],
       "updatedBy": "system:seed",
@@ -165,41 +208,84 @@
         "Pushback seats",
         "Music system"
       ],
+      "photos": [],
       "weeklyAvailability": [
         {
           "available": true,
           "start": 360,
-          "end": 1020
+          "end": 1020,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1020
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1020
+          "end": 1020,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1020
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1020
+          "end": 1020,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1020
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1020
+          "end": 1020,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1020
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1020
+          "end": 1020,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1020
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1020
+          "end": 1020,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1020
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1020
+          "end": 1020,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1020
+            }
+          ]
         }
       ],
       "updatedBy": "system:seed",
@@ -222,41 +308,84 @@
         "Highback seats",
         "Extra legroom"
       ],
+      "photos": [],
       "weeklyAvailability": [
         {
           "available": true,
           "start": 360,
-          "end": 1380
+          "end": 1380,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1380
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1380
+          "end": 1380,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1380
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1380
+          "end": 1380,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1380
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1380
+          "end": 1380,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1380
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1380
+          "end": 1380,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1380
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1380
+          "end": 1380,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1380
+            }
+          ]
         },
         {
           "available": false,
           "start": 360,
-          "end": 1320
+          "end": 1320,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1320
+            }
+          ]
         }
       ],
       "updatedBy": "system:seed",
@@ -280,41 +409,84 @@
         "Pushback seats",
         "Luggage hold"
       ],
+      "photos": [],
       "weeklyAvailability": [
         {
           "available": true,
           "start": 360,
-          "end": 1380
+          "end": 1380,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1380
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1380
+          "end": 1380,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1380
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1380
+          "end": 1380,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1380
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1380
+          "end": 1380,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1380
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1380
+          "end": 1380,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1380
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1380
+          "end": 1380,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1380
+            }
+          ]
         },
         {
           "available": true,
           "start": 360,
-          "end": 1380
+          "end": 1380,
+          "slots": [
+            {
+              "start": 360,
+              "end": 1380
+            }
+          ]
         }
       ],
       "updatedBy": "system:seed",
@@ -1010,6 +1182,7 @@
         35,
         40
       ],
+      "packageNote": "Rates exclude toll, parking and entry charges, which are paid by the customer.",
       "updatedBy": "system:seed",
       "updatedAt": {
         "__ts": "2026-09-14T05:15:00.000Z"

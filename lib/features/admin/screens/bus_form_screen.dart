@@ -117,6 +117,7 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
 
   bool get _canSave {
     if (_photosBusy) return false;
+    if (_week.any((d) => d.problem != null)) return false;
     if (_vendorId == null || _regNumber.text.trim().isEmpty) return false;
     if (_addingDriver) {
       return _newDriverName.text.trim().isNotEmpty &&
@@ -321,7 +322,7 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
               ),
             ),
             Text(
-              'Customers can only charter this bus inside these hours.',
+              'Customers can only charter this bus inside these hours. Add a second slot if the bus is free twice a day.',
               style: textTheme.labelMedium,
             ),
             const SizedBox(height: AppSpacing.md),
@@ -407,32 +408,74 @@ class _BusFormScreenState extends ConsumerState<BusFormScreen> {
               ],
             ),
             if (day.available) ...[
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: TimeField(
-                      label: 'From',
-                      value: day.start,
-                      onChanged: (t) =>
-                          setState(() => _week[index] = day.copyWith(start: t)),
-                    ),
+              for (var i = 0; i < day.slots.length; i++) _slotRow(index, i),
+              if (day.slots.length < maxSlotsPerDay)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => _addSlot(index),
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('Add a slot'),
                   ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: TimeField(
-                      label: 'To',
-                      value: day.end,
-                      onChanged: (t) =>
-                          setState(() => _week[index] = day.copyWith(end: t)),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              if (day.problem != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(day.problem!,
+                      style: textTheme.labelMedium
+                          ?.copyWith(color: AppColors.urgent)),
+                ),
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  void _setSlots(int day, List<TimeSlot> slots) =>
+      setState(() => _week[day] = _week[day].copyWith(slots: slots));
+
+  /// A new slot starts an hour after the last one ends, if the day has room.
+  void _addSlot(int day) {
+    final slots = _week[day].slots;
+    final from = (slots.last.endMinutes + 60).clamp(0, 22 * 60);
+    final to = (from + 60).clamp(0, 23 * 60 + 59);
+    TimeOfDay at(int m) => TimeOfDay(hour: m ~/ 60, minute: m % 60);
+    _setSlots(day, [...slots, TimeSlot(start: at(from), end: at(to))]);
+  }
+
+  Widget _slotRow(int day, int i) {
+    final slots = _week[day].slots;
+    final slot = slots[i];
+    void replace(TimeSlot s) => _setSlots(day, [...slots]..[i] = s);
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: TimeField(
+              label: 'From',
+              value: slot.start,
+              onChanged: (t) => replace(TimeSlot(start: t, end: slot.end)),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: TimeField(
+              label: 'To',
+              value: slot.end,
+              onChanged: (t) => replace(TimeSlot(start: slot.start, end: t)),
+            ),
+          ),
+          if (slots.length > 1)
+            IconButton(
+              tooltip: 'Remove slot',
+              icon: const Icon(Icons.close_rounded,
+                  color: AppColors.textTertiary),
+              onPressed: () => _setSlots(day, [...slots]..removeAt(i)),
+            ),
+        ],
       ),
     );
   }

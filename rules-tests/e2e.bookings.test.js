@@ -91,6 +91,20 @@ test("search returns only buses that are really free for the trip", async () => 
   assert.deepEqual(wide.busIds.sort(), ["free", "late", "small"]); // blackout, closed, inactive and the closed vendor stay out
 });
 
+test("a bus with two slots a day is offered inside either slot, never across the gap", async () => {
+  await reset();
+  const twice = { available: true, start: 15 * 60, end: 17 * 60, slots: [{ start: 15 * 60, end: 17 * 60 }, { start: 21 * 60, end: 22 * 60 }] };
+  await put("buses/twice", bus("twice", { weeklyAvailability: Array.from({ length: 7 }, () => twice) }));
+  await put("buses/oneslot", bus("oneslot", { weeklyAvailability: Array.from({ length: 7 }, () => ({ available: true, start: 15 * 60, end: 17 * 60 })) })); // saved before slots existed
+  const c = await client("9820011020");
+  assert.deepEqual((await c.call("searchBuses", { startsAt: when(24, "15:30"), endsAt: when(24, "16:30") })).busIds.sort(), ["oneslot", "twice"]);
+  assert.deepEqual((await c.call("searchBuses", { startsAt: when(24, "21:00"), endsAt: when(24, "22:00") })).busIds, ["twice"]);
+  assert.deepEqual((await c.call("searchBuses", { startsAt: when(24, "16:00"), endsAt: when(24, "21:30") })).busIds, []); // across the gap
+  await rejectsWith(c.call("createHold", { busId: "twice", startsAt: when(24, "16:00"), endsAt: when(24, "21:30"), route: "A → B", pickupLandmark: "x" }), "failed-precondition");
+  const hold = await c.call("createHold", { busId: "twice", startsAt: when(24, "21:00"), endsAt: when(24, "21:45"), route: "A → B", pickupLandmark: "x" });
+  assert.match(hold.reference, /^CB-/);
+});
+
 test("a search that finds nothing is logged for the failed-searches report", async () => {
   await reset();
   const c = await client("9820011002");
